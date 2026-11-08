@@ -2,7 +2,7 @@
 ## Title: |cffD9AA3CBulwark|r
 ## Notes: Tanking suite: combat alerts, pre-pull audit and one-key raid marking in one window.
 ## Author: Azuriel
-## Version: 0.2.0
+## Version: 0.3.0
 ## IconTexture: Interface\AddOns\Bulwark\Media\icon.tga
 ## Category: Tanking
 ## AddonCompartmentFunc: Bulwark_OnCompartmentClick
@@ -33,6 +33,14 @@ Areas\Alerts\AbilityAlerts.lua
 Areas\Alerts\LossOfControl.lua
 Areas\Alerts\ThreatMonitor.lua
 Areas\Alerts\Area.lua
+# Audit: from TankAuditForever
+Areas\Audit\Data.lua
+Areas\Audit\Roster.lua
+Areas\Audit\Requests.lua
+Areas\Audit\Gratitude.lua
+Areas\Audit\Bar.lua
+Areas\Audit\Scanner.lua
+Areas\Audit\SelfAlert.lua
 Areas\Audit\Area.lua
 Areas\Marking\Area.lua
 

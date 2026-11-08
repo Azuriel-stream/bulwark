@@ -37,6 +37,61 @@ function Utils.SafeNumber(val, fallback)
     return val
 end
 
+-- Set from a list ({ 1, 2 } -> { [1] = true, [2] = true }).
+function Utils.ToSet(list)
+    local set = {}
+    for _, v in ipairs(list or {}) do set[v] = true end
+    return set
+end
+
+-- "2h", "5m", "40s".
+function Utils.FormatTime(seconds)
+    if seconds >= 3600 then return math.ceil(seconds / 3600) .. "h" end
+    if seconds > 60 then return math.ceil(seconds / 60) .. "m" end
+    return tostring(math.max(0, math.ceil(seconds))) .. "s"
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Spells and auras
+---------------------------------------------------------------------------------------------------------------
+
+-- Forever: the global IsPlayerSpell is only a deprecation shim (kb/gotchas.md#deprecation-fallbacks).
+function Utils.IsKnown(spellID)
+    return spellID ~= nil and C_SpellBook.IsSpellKnown(spellID) == true
+end
+
+-- True if the player knows any rank.
+function Utils.KnowsAny(ids)
+    for _, id in ipairs(ids or {}) do
+        if Utils.IsKnown(id) then return true end
+    end
+    return false
+end
+
+function Utils.SpellName(id)
+    return id and C_Spell.GetSpellName(id) or nil
+end
+
+-- Spell name as plain "[Name]" for chat. Never a spell link: a ranked link corrupts the text after it in a sent
+-- message, for every reader [in-game] (kb/gotchas.md#spell-link-chat).
+function Utils.SpellChatName(id, fallbackName)
+    local name = id and C_Spell.GetSpellName(id)
+    if not name or Utils.IsSecret(name) or name == "" then name = fallbackName or "?" end
+    return "[" .. name .. "]"
+end
+
+-- Calls callback(aura) for each of the unit's auras (filter "HELPFUL"/"HARMFUL"). Returns false, and stops, as soon
+-- as the data is secret (restricted: combat, encounters).
+function Utils.ForEachAura(unit, filter, callback)
+    for index = 1, 255 do
+        local aura = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
+        if not aura then return true end
+        if Utils.IsSecret(aura.spellId) then return false end
+        callback(aura)
+    end
+    return true
+end
+
 ---------------------------------------------------------------------------------------------------------------
 -- Group
 ---------------------------------------------------------------------------------------------------------------

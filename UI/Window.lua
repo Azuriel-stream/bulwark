@@ -339,9 +339,11 @@ local function Create()
     frame:SetScript("OnShow", function()
         if SOUNDKIT then PlaySound(SOUNDKIT.IG_CHARACTER_INFO_OPEN) end
         Window:Refresh()
+        NS:Fire("WINDOW_CHANGED", true, activeArea, activePage)
     end)
     frame:SetScript("OnHide", function()
         if SOUNDKIT then PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE) end
+        NS:Fire("WINDOW_CHANGED", false, activeArea, activePage)
     end)
 end
 
@@ -377,6 +379,8 @@ function Window:Select(areaKey, pageKey)
     navs[area.key].selected = activePage
     ShowPage(area, page)
     Window:Refresh()
+    -- (shown, areaKey, pageKey): areas react to being looked at (Audit previews its tiles).
+    NS:Fire("WINDOW_CHANGED", frame:IsShown(), activeArea, activePage)
 end
 
 function Window:Open(areaKey, pageKey)

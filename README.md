@@ -8,8 +8,8 @@ in one addon with one window.
 > | Tab | Comes from | State |
 > |---|---|---|
 > | Alerts | TankAlertForever | moved in (0.2.0) |
-> | Audit | TankAuditForever | next |
-> | Marking | TankMarkForever | planned |
+> | Audit | TankAuditForever | moved in (0.3.0) |
+> | Marking | TankMarkForever | next |
 >
 > Until an area has moved in, keep using its standalone addon. Bulwark leaves an area switched off while its
 > standalone addon is loaded, so nothing runs twice.
@@ -34,6 +34,8 @@ in one addon with one window.
 | `/bwk errors [clear]` | list or clear errors Bulwark recorded |
 | `/bwk alerts test miss\|cc\|disarm\|whisper [name]` | send a test alert through the real channel |
 | `/bwk alerts status` | show the Alerts settings |
+| `/bwk audit lock\|unlock\|reset` | lock, unlock (drag) or reset the Audit tiles |
+| `/bwk audit scan\|dump\|status` | scan now, list your auras with spell IDs, show what's checked |
 
 ## Alerts
 
@@ -47,6 +49,23 @@ stunned, feared, incapacitated or disarmed, and whispers players whose threat ge
 - **Threat whispers:** on/off, only while tanking, threshold, time between whispers.
 - **Channel:** Auto (Raid Warning when you lead or assist a raid, else Raid or Party), Say, Party, Raid,
   Raid Warning. Solo, alerts are shown only to you.
+
+## Audit
+
+Pre-pull tiles for Warrior and Paladin tanks. A tile shows only when something needs attention: no tiles means
+all good. Each tile shows the live buff and timer even in combat.
+
+- **Self buffs and stance:** Battle Shout and Defensive Stance, or Righteous Fury. Click to cast. In combat a
+  sound plays (and the tile glows) about 15 s before your own buff fades.
+- **Group buffs and blessings:** from the classes in your group; click to ask in party/raid chat. When the buff
+  arrives, the caster gets a thank-you whisper.
+- **Consumables:** Well Fed and the weapon buff, optionally an elixir or a flask; click to open your bags.
+- **Healthstone:** when a warlock is in the group and you carry none.
+- **Debuffs:** one tile per debuff type you or your group can remove; click to dispel yourself or ask.
+- **Blessing of Salvation:** right-click to cancel it, in combat too.
+
+Pages: Checks, Blessings (priority per tank class), Tiles (lock, size, position), Sound, Tools. While the window
+shows the Audit tab, every tile is shown as a preview.
 
 ## Settings
 
