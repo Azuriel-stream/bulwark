@@ -1,0 +1,37 @@
+## Interface: 16001
+## Title: |cffD9AA3CBulwark|r
+## Notes: Tanking suite: combat alerts, pre-pull audit and one-key raid marking in one window.
+## Author: Azuriel
+## Version: 0.1.0
+## IconTexture: Interface\AddOns\Bulwark\Media\icon.tga
+## Category: Tanking
+## AddonCompartmentFunc: Bulwark_OnCompartmentClick
+## SavedVariables: BulwarkDB
+## SavedVariablesPerCharacter: BulwarkCharDB
+
+# Error recorder (first, so it also records load-time errors)
+Core\Errors.lua
+
+# Locales
+Locales\Localization.lua
+Locales\enUS.lua
+
+# Core
+Core\Init.lua
+Core\Config.lua
+Core\Utils.lua
+Core\Areas.lua
+
+# Window kit and window
+UI\Kit.lua
+UI\Window.lua
+
+# Areas (one tab each)
+Areas\Alerts\Area.lua
+Areas\Audit\Area.lua
+Areas\Marking\Area.lua
+
+# Settings tab, minimap button, slash commands
+UI\Settings.lua
+UI\Minimap.lua
+UI\Commands.lua

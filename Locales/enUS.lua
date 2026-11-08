@@ -1,0 +1,121 @@
+local ADDON_NAME, NS = ...
+local L = NS:NewLocale("enUS")
+if not L then return end
+
+-- General
+L["TITLE"] = "Bulwark"
+L["TITLE_BANNER"] = "BULWARK"
+L["TAGLINE"] = "Tanking suite for WoW: Forever"
+L["ADDON_LOADED"] = "v%s loaded. Type |cffffd160/bwk|r to open."
+L["ON"] = "ON"
+L["OFF"] = "OFF"
+L["STATUS_ON"] = "On"
+L["STATUS_OFF"] = "Off"
+L["STATUS_WAITING"] = "Waiting"
+L["STATUS_WAITING_FOR"] = "Waiting for %s to be turned off"
+L["PLACEHOLDER"] = "These options move here from %s in a later build step. Until then, that addon keeps working on its own."
+
+-- Areas
+L["AREA_ALERTS"] = "Alerts"
+L["AREA_ALERTS_DESC"] = "Announces failed taunts and threat abilities, crowd control on you, and threat warnings."
+L["AREA_AUDIT"] = "Audit"
+L["AREA_AUDIT_DESC"] = "Pre-pull check: missing buffs, consumables, dispellable debuffs, unwanted buffs."
+L["AREA_MARKING"] = "Marking"
+L["AREA_MARKING_DESC"] = "Plans raid marks for the pack ahead and marks it with one key."
+L["AREA_SETTINGS"] = "Settings"
+L["AREA_BLOCKED_LOGIN"] = "%s stays off while %s is loaded. Disable that addon in the AddOns list to use Bulwark's version."
+L["AREA_COMBAT"] = "Areas can't be switched on or off in combat."
+L["AREA_NO_COMMANDS"] = "%s has no commands yet."
+
+-- Pages
+L["PAGE_GENERAL"] = "General"
+L["PAGE_ABILITIES"] = "Abilities"
+L["PAGE_CC"] = "CC & Disarm"
+L["PAGE_THREAT"] = "Threat whispers"
+L["PAGE_CHANNEL"] = "Channel"
+L["PAGE_CHECKS"] = "Checks"
+L["PAGE_BLESSINGS"] = "Blessings"
+L["PAGE_TILES"] = "Tiles"
+L["PAGE_SOUND"] = "Sound"
+L["PAGE_TOOLS"] = "Tools"
+L["PAGE_TEAM"] = "Team"
+L["PAGE_MOBS"] = "Mobs"
+L["PAGE_OPTIONS"] = "Options"
+L["PAGE_KEYS"] = "Keys"
+
+-- Window
+L["SWITCH_TIP_TITLE"] = "%s on/off"
+L["SWITCH_TIP"] = "Turns this whole area on or off. Not available in combat."
+L["NOTICE_OFF"] = "%s is off. Turn it on with the switch at the top left."
+L["NOTICE_BLOCKED"] = "%s waits for %s: disable it in the AddOns list and reload."
+
+-- Settings > Areas
+L["PAGE_AREAS"] = "Areas"
+L["PAGE_AREAS_DESC"] = "Turn each part of Bulwark on or off. An area that is off uses no events and shows nothing."
+L["AREAS_NOTE"] = "An area waits while the standalone addon it replaces is still loaded, so nothing runs twice."
+
+-- Settings > Window
+L["PAGE_WINDOW"] = "Window"
+L["PAGE_WINDOW_DESC"] = "Size and position of this window, and the minimap button."
+L["CARD_WINDOW"] = "Window"
+L["OPT_SCALE"] = "Window size"
+L["BTN_RESET_POSITION"] = "Reset size & position"
+L["BTN_RESET_POSITION_TIP"] = "Back to 100% size, centered on screen."
+L["WINDOW_HINT"] = "Drag the banner at the top to move the window. Esc closes it."
+L["CARD_MINIMAP"] = "Minimap button"
+L["OPT_MINIMAP"] = "Show minimap button"
+L["OPT_MINIMAP_TIP"] = "Left-click opens Bulwark, right-click opens Settings. /bwk minimap toggles it too."
+L["MINIMAP_HINT"] = "Drag the button to move it around the minimap."
+L["MINIMAP_TIP_LEFT"] = "Left-click: open or close"
+L["MINIMAP_TIP_RIGHT"] = "Right-click: settings"
+L["MINIMAP_TIP_DRAG"] = "Drag to move"
+L["MINIMAP_SHOWN"] = "Minimap button shown."
+L["MINIMAP_HIDDEN"] = "Minimap button hidden. /bwk minimap shows it again."
+L["WINDOW_RESET"] = "Window size and position reset."
+
+-- Settings > Debug
+L["PAGE_DEBUG"] = "Debug"
+L["PAGE_DEBUG_DESC"] = "Tools for tracking down problems. Leave them off for normal play."
+L["CARD_DIAGNOSTICS"] = "Diagnostics"
+L["OPT_DEBUG_TRACE"] = "Debug trace"
+L["OPT_DEBUG_TRACE_TIP"] = "Prints what Bulwark does in chat and keeps the last 400 lines in its saved variables."
+L["OPT_DEBUG_CVARS"] = "Show Lua errors and log taint"
+L["OPT_DEBUG_CVARS_TIP"] = "Turns on the game's Lua error popups and Logs\\taint.log for every addon. These are game settings; they stay until you turn this off."
+L["CARD_ERRORS"] = "Recorded errors"
+L["ERRORS_COUNT"] = "Errors recorded from Bulwark: %d"
+L["BTN_PRINT_ERRORS"] = "Print to chat"
+L["BTN_CLEAR_ERRORS"] = "Clear"
+L["CARD_BLOCKED"] = "Last blocked action"
+L["BLOCKED_NONE"] = "No blocked action recorded."
+
+-- Settings > About
+L["PAGE_ABOUT"] = "About"
+L["ABOUT_DESC"] = "Combat alerts, pre-pull audit and one-key raid marking for tanks, in one place."
+L["CARD_COMMANDS"] = "Commands"
+L["ABOUT_AUTHOR"] = "By Azuriel. Made for WoW: Forever."
+
+-- Commands
+L["HELP_HEADER"] = "Commands:"
+L["HELP_TOGGLE"] = "open or close the window"
+L["HELP_AREA"] = "open that tab"
+L["HELP_SETTINGS"] = "open Settings"
+L["HELP_STATUS"] = "show what's on"
+L["HELP_MINIMAP"] = "show or hide the minimap button"
+L["HELP_RESET"] = "reset window size and position"
+L["HELP_DEBUG"] = "debug trace and diagnostics"
+L["HELP_ERRORS"] = "list or clear recorded errors"
+L["STATUS_HEADER"] = "v%s"
+L["STATUS_WINDOW"] = "Window size: %d%%, minimap button: %s"
+L["DEBUG_ON"] = "Debug trace on."
+L["DEBUG_OFF"] = "Debug trace off."
+L["DEBUG_CVARS_ON"] = "Lua error popups and taint log on."
+L["DEBUG_CVARS_OFF"] = "Lua error popups and taint log off."
+L["DEBUG_STATE"] = "Debug trace: %s, Lua errors/taint log: %s"
+L["DEBUG_LAST_BLOCKED"] = "Last blocked action: %s %s %s"
+
+-- Errors
+L["ERRORS_RECORDED"] = "Error recorded (|cffffd160/bwk errors|r): %s"
+L["ERRORS_NONE"] = "No errors recorded."
+L["ERRORS_HEADER"] = "%d recorded error(s), oldest first:"
+L["ERRORS_NO_HOOK"] = "The error hook could not be installed; only errors caught inside Bulwark are recorded."
+L["ERRORS_CLEARED"] = "Recorded errors cleared."
