@@ -1,0 +1,7 @@
+<Bindings>
+	<!-- Forever: marking only works through secure buttons on a key press (kb/gotchas.md#setraidtarget). -->
+	<Binding name="CLICK BWK_PackButton:LeftButton" header="BULWARK" category="ADDONS"/>
+	<Binding name="CLICK BWK_SkullButton:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK BWK_CycleButton:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK BWK_ClearButton:LeftButton" category="ADDONS"/>
+</Bindings>

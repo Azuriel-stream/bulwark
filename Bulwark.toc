@@ -2,7 +2,7 @@
 ## Title: |cffD9AA3CBulwark|r
 ## Notes: Tanking suite: combat alerts, pre-pull audit and one-key raid marking in one window.
 ## Author: Azuriel
-## Version: 0.3.0
+## Version: 0.4.0
 ## IconTexture: Interface\AddOns\Bulwark\Media\icon.tga
 ## Category: Tanking
 ## AddonCompartmentFunc: Bulwark_OnCompartmentClick
@@ -42,6 +42,21 @@ Areas\Audit\Bar.lua
 Areas\Audit\Scanner.lua
 Areas\Audit\SelfAlert.lua
 Areas\Audit\Area.lua
+# Marking: from TankMarkForever (Core.lua = the namespace its modules expect)
+Areas\Marking\Core.lua
+Areas\Marking\Locale.lua
+Areas\Marking\Utils.lua
+Areas\Marking\Data\ModelNames.lua
+Areas\Marking\Data\InstanceMobs.lua
+Areas\Marking\Data\Rules.lua
+Areas\Marking\Plates.lua
+Areas\Marking\Team.lua
+Areas\Marking\MobDB.lua
+Areas\Marking\Planner.lua
+Areas\Marking\Marker.lua
+Areas\Marking\Overlay.lua
+Areas\Marking\HUD.lua
+Areas\Marking\Keys.lua
 Areas\Marking\Area.lua
 
 # Settings tab, minimap button, slash commands

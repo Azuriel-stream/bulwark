@@ -9,7 +9,7 @@ in one addon with one window.
 > |---|---|---|
 > | Alerts | TankAlertForever | moved in (0.2.0) |
 > | Audit | TankAuditForever | moved in (0.3.0) |
-> | Marking | TankMarkForever | next |
+> | Marking | TankMarkForever | moved in (0.4.0) |
 >
 > Until an area has moved in, keep using its standalone addon. Bulwark leaves an area switched off while its
 > standalone addon is loaded, so nothing runs twice.
@@ -36,6 +36,9 @@ in one addon with one window.
 | `/bwk alerts status` | show the Alerts settings |
 | `/bwk audit lock\|unlock\|reset` | lock, unlock (drag) or reset the Audit tiles |
 | `/bwk audit scan\|dump\|status` | scan now, list your auras with spell IDs, show what's checked |
+| `/bwk mark announce\|plan\|status` | post the kill order, print the pack plan, show status |
+| `/bwk mark learn <1-9\|ignore\|cc> [icon\|class]`, `/bwk mark forget` | teach or forget the hovered/targeted mob |
+| `/bwk mark select clear`, `/bwk mark overlay` | clear the Shift-hover selection, toggle planned icons |
 
 ## Alerts
 
@@ -66,6 +69,27 @@ all good. Each tile shows the live buff and timer even in combat.
 
 Pages: Checks, Blessings (priority per tank class), Tiles (lock, size, position), Sound, Tools. While the window
 shows the Audit tab, every tile is shown as a preview.
+
+## Marking
+
+Plans raid marks for the pack in front of you and puts them on with one key. The game doesn't let addons mark by
+themselves, so marking always happens on a key press (bind the keys under Keybindings > AddOns > Bulwark):
+
+- **Mark planned pack:** marks the planned pack (faint icons above the nameplates show the plan).
+- **Next skull on target** and **next free icon on target:** in-combat overrides on your target.
+- **Clear all marks:** follow marks come back on.
+
+- **Team page:** the kill order (top first), each mark's role (Tank, CC or Follow) and player; Announce posts it.
+  Saved per character.
+- **Mobs page:** what Bulwark learned per zone (priority, type, fixed icon, CC class), page by page.
+- **Options:** planned icons above nameplates, Shift-hover to select a pack, only nearby mobs in view, record new
+  mob types in dungeons.
+- **Keys:** the current bindings, and macros that still use TankMarkForever's button names.
+- **HUD:** a small always-on list of the marks; click a mark to switch it off for the next pulls, right-click to
+  open the Team page, click the title to collapse it.
+
+Moving over from TankMarkForever: keys bound to its buttons move to Bulwark's buttons automatically. Macros that
+`/click TMF_...` buttons need `TMF_` changed to `BWK_` by hand (Bulwark lists them).
 
 ## Settings
 

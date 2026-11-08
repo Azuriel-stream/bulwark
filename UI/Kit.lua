@@ -186,6 +186,12 @@ function Kit.Button(parent, text, width, onClick)
         self:SetEnabled(enabled)
         Kit.SetTextColor(self.label, enabled and C.goldText or C.muted)
     end
+    function b:SetLabel(text)
+        self.label:SetText(text)
+    end
+    function b:GetLabel()
+        return self.label:GetText()
+    end
     return b
 end
 
