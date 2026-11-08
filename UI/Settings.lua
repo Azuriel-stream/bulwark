@@ -170,11 +170,13 @@ NS:AddPage(area.key, {
     title = L["PAGE_ABOUT"],
     build = function(_, parent)
         local y = Kit.PageHeader(parent, L["TITLE"] .. "  |cff8a8d91v" .. NS.version .. "|r", L["ABOUT_DESC"])
-        local cmds = PlaceCard(parent, L["CARD_COMMANDS"], y, 200)
-        local text = Kit.Paragraph(cmds, table.concat(NS.CommandHelp(), "\n"), 600, 12)
+        local lines = NS.CommandHelp()
+        local height = 56 + #lines * 15
+        local cmds = PlaceCard(parent, L["CARD_COMMANDS"], y, height)
+        local text = Kit.Paragraph(cmds, table.concat(lines, "\n"), 600, 12)
         text:SetPoint("TOPLEFT", 16, -42)
         local by = Kit.Text(parent, 11, C.muted)
-        by:SetPoint("TOPLEFT", 0, y - 214)
+        by:SetPoint("TOPLEFT", 0, y - height - 14)
         by:SetText(L["ABOUT_AUTHOR"])
     end,
 })

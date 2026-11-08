@@ -8,7 +8,7 @@ local Commands = NS:RegisterModule("Commands")
 local AREA_ALIASES = { mark = "marking", alert = "alerts" }
 
 function NS.CommandHelp()
-    return {
+    local lines = {
         "|cffffd160/bwk|r  " .. L["HELP_TOGGLE"],
         "|cffffd160/bwk alerts|r, |cffffd160audit|r, |cffffd160mark|r  " .. L["HELP_AREA"],
         "|cffffd160/bwk settings|r  " .. L["HELP_SETTINGS"],
@@ -18,6 +18,10 @@ function NS.CommandHelp()
         "|cffffd160/bwk debug|r [on||off||cvars on||off]  " .. L["HELP_DEBUG"],
         "|cffffd160/bwk errors|r [clear]  " .. L["HELP_ERRORS"],
     }
+    for _, area in ipairs(NS.areas) do
+        for _, line in ipairs(area.commandHelp or {}) do table.insert(lines, line) end
+    end
+    return lines
 end
 
 function NS:PrintErrors()

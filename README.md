@@ -3,13 +3,12 @@
 A tanking suite for **WoW: Forever** (interface 16001): combat alerts, a pre-pull audit and one-key raid marking,
 in one addon with one window.
 
-> **Work in progress.** This version has the window, the Settings tab and the minimap button. The three feature
-> areas move in from the standalone addons in the next steps:
+> **Work in progress.** The feature areas move in from the standalone addons one at a time:
 >
 > | Tab | Comes from | State |
 > |---|---|---|
-> | Alerts | TankAlertForever | next |
-> | Audit | TankAuditForever | planned |
+> | Alerts | TankAlertForever | moved in (0.2.0) |
+> | Audit | TankAuditForever | next |
 > | Marking | TankMarkForever | planned |
 >
 > Until an area has moved in, keep using its standalone addon. Bulwark leaves an area switched off while its
@@ -33,6 +32,21 @@ in one addon with one window.
 | `/bwk debug [on\|off]` | debug trace in chat (kept in the saved variables) |
 | `/bwk debug cvars on\|off` | the game's Lua error popups and taint log |
 | `/bwk errors [clear]` | list or clear errors Bulwark recorded |
+| `/bwk alerts test miss\|cc\|disarm\|whisper [name]` | send a test alert through the real channel |
+| `/bwk alerts status` | show the Alerts settings |
+
+## Alerts
+
+Tells your group when a taunt or threat ability fails (missed, dodged, parried, resisted, immune...), when you're
+stunned, feared, incapacitated or disarmed, and whispers players whose threat gets close to yours.
+
+- **General:** quiet while threat is solid (non-taunt failures aren't announced while you're well ahead on
+  threat; taunts always are), test buttons.
+- **Abilities:** which of your class's abilities are tracked (Warrior, Paladin, Druid, Shaman).
+- **CC & Disarm:** what to announce and the time between alerts.
+- **Threat whispers:** on/off, only while tanking, threshold, time between whispers.
+- **Channel:** Auto (Raid Warning when you lead or assist a raid, else Raid or Party), Say, Party, Raid,
+  Raid Warning. Solo, alerts are shown only to you.
 
 ## Settings
 
