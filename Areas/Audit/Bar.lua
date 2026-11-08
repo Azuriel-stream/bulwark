@@ -137,11 +137,19 @@ local function ShowTooltip(tile)
     GameTooltip:Show()
 end
 
+-- Our tiles only use the left button. The right button passes through to whatever is beneath (the game world:
+-- hold right-click to turn), even over a transparent tile that keeps its mouse in combat (the debuff click-catchers
+-- always do; EnableMouse can't change in combat). Protected: set once at load, out of combat.
+local function PassRightClick(button)
+    pcall(button.SetPassThroughButtons, button, "RightButton")
+end
+
 local function CreateTile(def, index)
     local tile = CreateFrame("Button", "Bulwark_AuditTile" .. index, anchor, "SecureActionButtonTemplate")
     tile:SetSize(SIZE, SIZE)
     -- Addon secure buttons act on mouse DOWN by default: register both halves (kb/gotchas.md#secure-clicks)
     tile:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
+    PassRightClick(tile)
     tile.def = def
 
     tile.art = tile:CreateTexture(nil, "BACKGROUND")
@@ -256,6 +264,7 @@ local function CreateTopRow()
         catcher:SetAllPoints(holder)
         catcher:SetFrameLevel(holder:GetFrameLevel() + 20)
         catcher:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
+        PassRightClick(catcher)
         catcher.dispelType = dtype
         if not pcall(catcher.SetPropagateMouseMotion, catcher, true) then
             -- Fallback: our own tooltip if motion can't pass through to Blizzard's button

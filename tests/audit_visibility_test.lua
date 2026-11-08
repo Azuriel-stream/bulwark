@@ -27,6 +27,12 @@ return function(sim, t)
     t.ok(weaponTile and not weaponTile.blizzardSlot:IsMouseEnabled(), "weapon enchant button ignores the mouse too")
     local salv = H.Container(w, w.env.Bulwark.AuditBar:GetSalvationHolder())._slots.unwanted
     t.ok(salv:IsMouseEnabled(), "Salvation keeps its mouse (right-click cancel)")
+    -- Right-click (hold to turn the character) goes through our tiles to the world, even over a transparent
+    -- debuff click-catcher that keeps its mouse in combat; left-click still reaches the tile.
+    local catcher = w.env.Bulwark_AuditDebuffClickMagic
+    t.ok(catcher and catcher:ShouldButtonPassThrough("RightButton"), "debuff catcher passes right-click through")
+    t.ok(catcher and not catcher:ShouldButtonPassThrough("LeftButton"), "debuff catcher keeps left-click")
+    t.ok(fortTile:ShouldButtonPassThrough("RightButton"), "buff tile passes right-click through")
 
     -- Expiring out of combat: visible, clickable, and a request says when it fades
     w.units.player.auras[2].expirationTime = w.now + 50
