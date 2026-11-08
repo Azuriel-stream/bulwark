@@ -48,8 +48,8 @@ function Announcer:PrintLocal(msg)
     NS:Print(Colorize(Utils.ReplaceRaidTokens(msg)))
 end
 
--- Sends to the channel. SAY/YELL in combat need a hardware event, and Say solo would only talk to strangers:
--- both become a local line instead.
+-- Sends to the channel. SAY/YELL in combat need a hardware event, Say solo would only talk to strangers, and while
+-- the game restricts addon chat nothing can be sent: all three become a local line instead.
 function Announcer:Send(msg, channel)
     msg = Utils.SafeString(msg, "")
     if msg == "" then return end
@@ -59,6 +59,11 @@ function Announcer:Send(msg, channel)
     end
     local solo = Utils.GetGroupType() == "SOLO"
     if ((channel == "SAY" or channel == "YELL") and InCombatLockdown()) or (solo and channel == "SAY") then
+        self:PrintLocal(msg)
+        return
+    end
+    if Utils.ChatRestricted() then
+        NS:Debug("chat restricted: %s shown locally instead of %s", msg, channel)
         self:PrintLocal(msg)
         return
     end
@@ -151,6 +156,10 @@ function Announcer:Whisper(recipient, percent, mob)
     if recipient == "" then return end
     local msg = string.format(L["ALERT_THREAT_WHISPER"], math.floor(Utils.SafeNumber(percent, 0)),
         Utils.SafeString(mob, L["THE_TARGET"]))
+    if Utils.ChatRestricted() then
+        NS:Debug("chat restricted: whisper to %s not sent", recipient)
+        return
+    end
     pcall(C_ChatInfo.SendChatMessage, msg, "WHISPER", nil, recipient)
 end
 

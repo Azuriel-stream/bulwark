@@ -66,6 +66,14 @@ return function(_, t)
     t.contains({ unpack(sim.output, printed + 1) }, "Keys: pack F", "status shows the keys")
     sim:Slash("/bwk mark announce")
     t.ok(sim.chat[#sim.chat] and sim.chat[#sim.chat].msg:find("^%[Bulwark%] Kill order:"), "announcement goes out branded")
+    -- Addon chat restricted: the announcement is shown locally, nothing blocked.
+    local before = #sim.chat
+    sim.chatRestricted = true
+    sim:Slash("/bwk mark announce")
+    sim.chatRestricted = false
+    t.eq(#sim.chat, before, "restricted: announcement not sent")
+    t.contains(sim.output, "doesn't let addons send chat", "restricted: player told")
+    t.eq(#sim.violations, 0, "restricted: no blocked action")
 
     -- TankMarkForever still loaded: Marking waits; nothing moved, no HUD, no armed buttons.
     local s2 = t.fresh(function(s)

@@ -107,6 +107,28 @@ return function(sim, t)
     t.eq(#newChat(function() sim:Advance(3) end), 0, "throttled per player")
     sim:LeaveCombat()
 
+    -- Addon chat restricted (boss fight, restricted map): nothing is sent (it would be blocked), the alert shows
+    -- locally; whispers are skipped. [in-game 2026-11-08: a stun alert to party was blocked, ADDON_ACTION_BLOCKED]
+    sim.chatRestricted = true
+    sim:EnterCombat()
+    sim.units.player.threatLead = 3
+    printed = #sim.output
+    t.eq(#castAndAvoid(355, "RESIST"), 0, "restricted: nothing sent")
+    t.contains({ unpack(sim.output, printed + 1) }, "RESISTED", "restricted: shown locally")
+    sim:Advance(10)
+    t.eq(#newChat(function() sim:Fire("UI_ERROR_MESSAGE", 51, "Can't do that while stunned") end), 0, "restricted: stun not sent")
+    t.eq(#newChat(function() sim:Advance(2) end), 0, "restricted: no threat whispers")
+    t.eq(#sim.violations, 0, "restricted: no blocked actions")
+    sim:LeaveCombat()
+    sim.chatRestricted = false
+    sim:Fire("LOSS_OF_CONTROL_UPDATE", "player")
+
+    -- No scan tooltip for secret names (it tainted Blizzard's tooltip code in combat, [in-game] 2026-11-08).
+    sim:EnterCombat()
+    t.eq(sim.env.Bulwark.Utils.GetSafeUnitName("target", "fallback"), "fallback", "secret target name: fallback")
+    sim:LeaveCombat()
+    t.eq(sim.env.Bulwark_ScanTooltip, nil, "no scan tooltip created")
+
     -- Solo: alerts are local lines, not Say.
     sim.group = "none"
     t.eq(NS.AlertsAnnouncer:GetChannel(), "SAY", "solo resolves to Say")

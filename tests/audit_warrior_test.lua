@@ -69,6 +69,13 @@ return function(sim, t)
     -- Group buff tile: click asks the party; throttled; gratitude whisper when it arrives
     local fort = H.Find(w, "GROUP:FORTITUDE")
     t.eq(fort:GetAttribute("type"), nil, "request tiles have no secure action")
+    -- Addon chat restricted: blocked even from a click [in-game]; the player is told, nothing sent, not throttled.
+    w.chatRestricted = true
+    fort:Click()
+    w.chatRestricted = false
+    t.eq(#w.chat, 0, "restricted: request not sent")
+    t.contains(w.output, "doesn't let addons send chat", "restricted: player told")
+    t.eq(#w.violations, 0, "restricted: no blocked action")
     fort:Click()
     local req = t.contains(w.chat, "Fortitude", "request sent")
     t.eq(req.channel, "PARTY", "request goes to party")

@@ -53,6 +53,10 @@ function Requests:Request(entry)
         NS:Print(L["MSG_WAIT_THROTTLE"])
         return
     end
+    if Utils.ChatRestricted() then   -- blocked even from a click (kb/gotchas.md#chat-restricted)
+        NS:Print(L["MSG_CHAT_RESTRICTED"])
+        return
+    end
     lastSent[throttleKey] = now
 
     C_ChatInfo.SendChatMessage(self:BuildMessage(entry), channel)

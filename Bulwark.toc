@@ -2,12 +2,12 @@
 ## Title: |cffD9AA3CBulwark|r
 ## Notes: Tanking suite: combat alerts, pre-pull audit and one-key raid marking in one window.
 ## Author: Azuriel
-## Version: 0.5.0
+## Version: 0.6.0
 ## IconTexture: Interface\AddOns\Bulwark\Media\icon.tga
 ## Category: Tanking
 ## AddonCompartmentFunc: Bulwark_OnCompartmentClick
-## SavedVariables: BulwarkDB, TankAlertForeverDB, TankAuditForeverDB, TankMarkForeverDB
-## SavedVariablesPerCharacter: BulwarkCharDB, TankMarkForeverCharDB
+## SavedVariables: BulwarkDB
+## SavedVariablesPerCharacter: BulwarkCharDB
 
 # Error recorder (first, so it also records load-time errors)
 Core\Errors.lua
@@ -21,8 +21,6 @@ Core\Init.lua
 Core\Config.lua
 Core\Utils.lua
 Core\Areas.lua
-# One-time import of TankAlert/TankAudit/TankMarkForever settings (first module: runs before the areas build)
-Core\Import.lua
 
 # Window kit and window
 UI\Kit.lua

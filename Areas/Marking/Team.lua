@@ -249,6 +249,10 @@ end
 
 function Team:Announce()
     local channel = IsInRaid() and "RAID" or (IsInGroup() and "PARTY") or nil
+    if channel and NS.Utils.ChatRestricted() then   -- Bulwark: blocked while addon chat is restricted
+        MK:Print(NS.L["MSG_CHAT_RESTRICTED"])
+        channel = nil
+    end
     for _, msg in ipairs(Team:BuildAnnouncement()) do
         if not channel then
             MK:Print(L["ANNOUNCE_SOLO"], msg)

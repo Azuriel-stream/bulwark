@@ -237,6 +237,7 @@ L["MSG_LOCAL_WEAPON"] = "Your weapon needs a Sharpening Stone, Weightstone or Oi
 L["MSG_LOCAL_ELIXIR"] = "You need an Elixir! Check your bags."
 L["MSG_LOCAL_FLASK"] = "You need a Flask! Check your bags."
 L["MSG_WAIT_THROTTLE"] = "Wait a few seconds before asking again."
+L["MSG_CHAT_RESTRICTED"] = "The game doesn't let addons send chat right now (boss fight or restricted area). Try again after combat."
 L["MSG_SOLO"] = "You're not in a group: nobody to ask."
 L["MSG_NEED_DISPEL_TYPE"] = "I have a %s effect on me - dispel me please!"
 L["MSG_NEED_HS"] = "I need a Healthstone please!"
@@ -324,10 +325,6 @@ L["HELP_MARK_MAIN"] = "post the kill order, print the pack plan, show status"
 L["HELP_MARK_LEARN"] = "teach or forget the hovered/targeted mob"
 L["HELP_MARK_MISC"] = "clear the Shift-hover selection, toggle planned icons"
 
--- Import from the standalone addons
-L["IMPORT_DONE"] = "Imported your settings from the standalone addons: %s."
-L["IMPORT_MOBS"] = "%s (%d learned mobs)"
-L["IMPORT_TEAM"] = "this character's team setup"
 
 -- Errors
 L["ERRORS_RECORDED"] = "Error recorded (|cffffd160/bwk errors|r): %s"

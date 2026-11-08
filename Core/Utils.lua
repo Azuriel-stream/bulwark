@@ -115,23 +115,10 @@ end
 -- Unit names (Forever characters have surnames: "First Last")
 ---------------------------------------------------------------------------------------------------------------
 
-local scanTooltip
--- First tooltip line for the unit: a fallback when UnitName is secret.
-local function TooltipUnitName(unit)
-    if not scanTooltip then
-        scanTooltip = CreateFrame("GameTooltip", "Bulwark_ScanTooltip", nil, "GameTooltipTemplate")
-        scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
-    end
-    scanTooltip:ClearLines()
-    if not pcall(scanTooltip.SetUnit, scanTooltip, unit) then return nil end
-    local line1 = _G["Bulwark_ScanTooltipTextLeft1"]
-    local text = line1 and line1.GetText and line1:GetText()
-    text = Utils.SafeString(text, nil)
-    if text and text ~= "" and text:lower() ~= "target" then return text end
-    return nil
-end
-
 -- Full character name ("First Last"), or nil when the unit doesn't exist or the name is unreadable.
+-- No tooltip-scan fallback for secret names: the tooltip shows the same hidden name, and feeding a unit with a secret
+-- GUID through a scan tooltip taints Blizzard's tooltip code in combat ([in-game] "Lua Taint: Bulwark" from
+-- GameTooltip SetWatch, kb/gotchas.md#tooltip-scan-taint).
 function Utils.GetUnitFullName(unit)
     if not unit then return nil end
     local okExists, exists = pcall(UnitExists, unit)
@@ -153,11 +140,17 @@ function Utils.GetUnitFullName(unit)
             end
         end)
     end
-
-    if not name or name == "" or name:lower() == "target" then
-        name = TooltipUnitName(unit) or name
-    end
     return name
+end
+
+-- True while the game restricts addon chat (Enum.AddOnRestrictionType.Chat: encounters, dungeon/raid maps...).
+-- SendChatMessage is then blocked even from a click ([in-game] ADDON_ACTION_BLOCKED UNKNOWN(), kb/gotchas.md#chat-restricted).
+function Utils.ChatRestricted()
+    local actions = C_RestrictedActions
+    local chat = Enum and Enum.AddOnRestrictionType and Enum.AddOnRestrictionType.Chat
+    if not (actions and actions.IsAddOnRestrictionActive and chat) then return false end
+    local ok, active = pcall(actions.IsAddOnRestrictionActive, chat)
+    return ok and active == true
 end
 
 -- Unit name that is never secret: the full name, else the plain name, else fallback.

@@ -3,16 +3,17 @@
 A tanking suite for **WoW: Forever** (interface 16001): combat alerts, a pre-pull audit and one-key raid marking,
 in one addon with one window.
 
-> **Work in progress.** The feature areas move in from the standalone addons one at a time:
->
-> | Tab | Comes from | State |
-> |---|---|---|
-> | Alerts | TankAlertForever | moved in (0.2.0) |
-> | Audit | TankAuditForever | moved in (0.3.0) |
-> | Marking | TankMarkForever | moved in (0.4.0) |
->
-> Until an area has moved in, keep using its standalone addon. Bulwark leaves an area switched off while its
-> standalone addon is loaded, so nothing runs twice.
+Bulwark replaces three standalone addons, one tab each:
+
+| Tab | Replaces |
+|---|---|
+| Alerts | TankAlertForever |
+| Audit | TankAuditForever |
+| Marking | TankMarkForever |
+
+Coming from one of them? Disable it in the AddOns list. While it's still loaded, Bulwark keeps that tab's area
+switched off, so nothing runs twice. Settings start fresh in Bulwark. Keys you bound to TankMarkForever's marking
+buttons move over by themselves; macros that `/click TMF_...` need `TMF_` changed to `BWK_` (Marking > Keys lists them).
 
 ## Opening Bulwark
 
