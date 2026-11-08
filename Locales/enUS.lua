@@ -200,6 +200,7 @@ L["CHANNEL_PARTY"] = "Party"
 L["CHANNEL_RAID"] = "Raid"
 L["CHANNEL_RAID_WARNING"] = "Raid Warning"
 L["DEBUG_QUIET_THREAT"] = "%s %s, not announced (threat is solid)."
+L["ALERT_NOT_SENT"] = "|cffff9900Alerts couldn't go to %s, so they're shown only to you (the game blocks addon chat right now: %s).|r"
 
 -- Alerts: commands
 L["HELP_ALERTS_TEST"] = "send a test alert"

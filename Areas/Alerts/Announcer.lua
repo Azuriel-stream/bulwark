@@ -48,8 +48,19 @@ function Announcer:PrintLocal(msg)
     NS:Print(Colorize(Utils.ReplaceRaidTokens(msg)))
 end
 
+-- When an alert can't go to the group, say why (at most once a minute) so a local-only line isn't a mystery.
+local lastNote = 0
+local function NoteNotSent(channel, reason)
+    if GetTime() - lastNote < 60 then return end
+    lastNote = GetTime()
+    NS:Print(L["ALERT_NOT_SENT"], L["CHANNEL_" .. channel] or channel, reason)
+end
+
 -- Sends to the channel. SAY/YELL in combat need a hardware event, Say solo would only talk to strangers, and while
 -- the game restricts addon chat nothing can be sent: all three become a local line instead.
+-- The send happens on the next frame, outside the event handler: [in-game 2026-11-08] alerts sent from inside
+-- LOSS_OF_CONTROL_ADDED / UI_ERROR_MESSAGE handlers were blocked (ADDON_ACTION_BLOCKED, also in TankAlertForever),
+-- while alerts from UNIT_COMBAT handlers reached party chat (kb/gotchas.md#chat-restricted).
 function Announcer:Send(msg, channel)
     msg = Utils.SafeString(msg, "")
     if msg == "" then return end
@@ -62,14 +73,19 @@ function Announcer:Send(msg, channel)
         self:PrintLocal(msg)
         return
     end
-    if Utils.ChatRestricted() then
-        NS:Debug("chat restricted: %s shown locally instead of %s", msg, channel)
-        self:PrintLocal(msg)
-        return
-    end
-    if not pcall(C_ChatInfo.SendChatMessage, msg, channel) then
-        self:PrintLocal(msg)
-    end
+    C_Timer.After(0, function()
+        if Utils.ChatRestricted() then
+            NS:Debug("chat restricted (%s): %s shown locally instead of %s", Utils.ActiveRestrictions(), msg, channel)
+            self:PrintLocal(msg)
+            NoteNotSent(channel, Utils.ActiveRestrictions())
+            return
+        end
+        local ok, err = pcall(C_ChatInfo.SendChatMessage, msg, channel)
+        if not ok then
+            self:PrintLocal(msg)
+            NoteNotSent(channel, Utils.SafeString(err, "?"))
+        end
+    end)
 end
 
 local function TargetText(name, icon)

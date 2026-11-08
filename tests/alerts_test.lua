@@ -10,6 +10,7 @@ return function(sim, t)
     local function newChat(fn)
         local before = #sim.chat
         fn()
+        sim:Advance(0.01)   -- sends happen on the next frame, outside the event handler
         local lines = {}
         for i = before + 1, #sim.chat do lines[#lines + 1] = sim.chat[i] end
         return lines
@@ -70,7 +71,12 @@ return function(sim, t)
     -- Loss of control through the LOC event: payload is (unit, index) [docs].
     sim:Advance(10)
     sim.loc[1] = { locType = "STUN_MECHANIC", spellID = 853, displayText = "Stunned" }
-    lines = newChat(function() sim:Fire("LOSS_OF_CONTROL_ADDED", "player", 1) end)
+    -- Sent on the next frame, not from inside the LOC event handler ([in-game]: sends from inside it were blocked).
+    lines = newChat(function()
+        local before = #sim.chat
+        sim:Fire("LOSS_OF_CONTROL_ADDED", "player", 1)
+        t.eq(#sim.chat, before, "nothing sent from inside the LOC event handler")
+    end)
     t.eq(#lines, 1, "stun announced from the LOC event")
     t.ok(lines[1].msg:find("STUNNED"), "says STUNNED")
     t.eq(#newChat(function() sim:Fire("LOSS_OF_CONTROL_ADDED", "player", 1) end), 0, "same stun not repeated")
@@ -115,6 +121,7 @@ return function(sim, t)
     printed = #sim.output
     t.eq(#castAndAvoid(355, "RESIST"), 0, "restricted: nothing sent")
     t.contains({ unpack(sim.output, printed + 1) }, "RESISTED", "restricted: shown locally")
+    t.contains({ unpack(sim.output, printed + 1) }, "couldn't go to Party.*Chat", "restricted: says why, naming the restriction")
     sim:Advance(10)
     t.eq(#newChat(function() sim:Fire("UI_ERROR_MESSAGE", 51, "Can't do that while stunned") end), 0, "restricted: stun not sent")
     t.eq(#newChat(function() sim:Advance(2) end), 0, "restricted: no threat whispers")

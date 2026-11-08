@@ -143,6 +143,20 @@ function Utils.GetUnitFullName(unit)
     return name
 end
 
+-- Names of the addon restrictions active right now ("Chat,Combat"), or "none". For diagnostics.
+function Utils.ActiveRestrictions()
+    local actions, types = C_RestrictedActions, Enum and Enum.AddOnRestrictionType
+    local active = {}
+    if actions and actions.IsAddOnRestrictionActive and type(types) == "table" then
+        for name, value in pairs(types) do
+            local ok, on = pcall(actions.IsAddOnRestrictionActive, value)
+            if ok and on == true then table.insert(active, name) end
+        end
+        table.sort(active)
+    end
+    return #active > 0 and table.concat(active, ",") or "none"
+end
+
 -- True while the game restricts addon chat (Enum.AddOnRestrictionType.Chat: encounters, dungeon/raid maps...).
 -- SendChatMessage is then blocked even from a click ([in-game] ADDON_ACTION_BLOCKED UNKNOWN(), kb/gotchas.md#chat-restricted).
 function Utils.ChatRestricted()

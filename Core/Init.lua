@@ -19,16 +19,7 @@ securityFrame:SetScript("OnEvent", function(_, event, addonName, functionName)
     if addonName ~= ADDON_NAME then return end
     local stack = (debugstack and debugstack(2, 8, 8)) or "No stack available"
     -- Which restrictions were on (diagnosis: chat sends are blocked while the Chat restriction is active).
-    local state = {}
-    local actions, types = C_RestrictedActions, Enum and Enum.AddOnRestrictionType
-    if actions and actions.IsAddOnRestrictionActive and types then
-        for name, value in pairs(types) do
-            local ok, active = pcall(actions.IsAddOnRestrictionActive, value)
-            if ok and active == true then table.insert(state, name) end
-        end
-        table.sort(state)
-    end
-    local restrictions = #state > 0 and table.concat(state, ",") or "none"
+    local restrictions = NS.Utils and NS.Utils.ActiveRestrictions() or "?"
     if NS.db then
         NS.db.lastBlocked = { event = event, func = tostring(functionName), stack = stack,
                               time = date("%Y-%m-%d %H:%M:%S"), restrictions = restrictions }
