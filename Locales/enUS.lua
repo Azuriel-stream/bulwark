@@ -200,7 +200,9 @@ L["CHANNEL_PARTY"] = "Party"
 L["CHANNEL_RAID"] = "Raid"
 L["CHANNEL_RAID_WARNING"] = "Raid Warning"
 L["DEBUG_QUIET_THREAT"] = "%s %s, not announced (threat is solid)."
-L["ALERT_NOT_SENT"] = "|cffff9900Alerts couldn't go to %s, so they're shown only to you (the game blocks addon chat right now: %s).|r"
+L["ALERT_NOT_SENT"] = "|cffff9900An alert couldn't go to %s, so it's shown only to you (%s).|r"
+L["ALERTS_PAUSED_BOSS"] = "|cffff9900Party alerts are paused during this boss fight (the game blocks addon chat).|r"
+L["ALERTS_PAUSED"] = "|cffff9900Party alerts are paused for this fight (the game blocks addon chat right now).|r"
 
 -- Alerts: commands
 L["HELP_ALERTS_TEST"] = "send a test alert"

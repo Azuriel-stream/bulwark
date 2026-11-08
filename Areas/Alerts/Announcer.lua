@@ -48,19 +48,32 @@ function Announcer:PrintLocal(msg)
     NS:Print(Colorize(Utils.ReplaceRaidTokens(msg)))
 end
 
--- When an alert can't go to the group, say why (at most once a minute) so a local-only line isn't a mystery.
-local lastNote = 0
-local function NoteNotSent(channel, reason)
-    if GetTime() - lastNote < 60 then return end
-    lastNote = GetTime()
+-- While the game blocks addon chat (boss encounters: [in-game] Chat,Combat,Encounter,Map), alerts are paused: they
+-- exist to tell the group, and the tank already knows. One note per fight says so (user's choice, 2026-11-08);
+-- it comes back after combat ends.
+local pausedNoted = false
+local function NotePaused()
+    if pausedNoted then return end
+    pausedNoted = true
+    local restrictions = Utils.ActiveRestrictions()
+    NS:Print(restrictions:find("Encounter", 1, true) and L["ALERTS_PAUSED_BOSS"] or L["ALERTS_PAUSED"])
+end
+
+-- A send that failed outright (rare): show the alert locally, say why once a minute.
+local lastFailNote = 0
+local function NoteFailed(channel, reason)
+    if GetTime() - lastFailNote < 60 then return end
+    lastFailNote = GetTime()
     NS:Print(L["ALERT_NOT_SENT"], L["CHANNEL_" .. channel] or channel, reason)
 end
 
--- Sends to the channel. SAY/YELL in combat need a hardware event, Say solo would only talk to strangers, and while
--- the game restricts addon chat nothing can be sent: all three become a local line instead.
--- The send happens on the next frame, outside the event handler: [in-game 2026-11-08] alerts sent from inside
--- LOSS_OF_CONTROL_ADDED / UI_ERROR_MESSAGE handlers were blocked (ADDON_ACTION_BLOCKED, also in TankAlertForever),
--- while alerts from UNIT_COMBAT handlers reached party chat (kb/gotchas.md#chat-restricted).
+local regenFrame = CreateFrame("Frame", "Bulwark_AnnouncerFrame")
+regenFrame:SetScript("OnEvent", function() pausedNoted = false end)
+
+-- Sends to the channel. SAY/YELL in combat need a hardware event and Say solo would only talk to strangers: both
+-- become a local line instead. While addon chat is restricted the alert is paused (not sent, not shown).
+-- The send happens on the next frame, outside the event handler (alerts from LOSS_OF_CONTROL_ADDED handlers were
+-- blocked before we checked the restriction; kb/gotchas.md#chat-restricted).
 function Announcer:Send(msg, channel)
     msg = Utils.SafeString(msg, "")
     if msg == "" then return end
@@ -75,15 +88,14 @@ function Announcer:Send(msg, channel)
     end
     C_Timer.After(0, function()
         if Utils.ChatRestricted() then
-            NS:Debug("chat restricted (%s): %s shown locally instead of %s", Utils.ActiveRestrictions(), msg, channel)
-            self:PrintLocal(msg)
-            NoteNotSent(channel, Utils.ActiveRestrictions())
+            NS:Debug("chat restricted (%s): paused %s", Utils.ActiveRestrictions(), msg)
+            NotePaused()
             return
         end
         local ok, err = pcall(C_ChatInfo.SendChatMessage, msg, channel)
         if not ok then
             self:PrintLocal(msg)
-            NoteNotSent(channel, Utils.SafeString(err, "?"))
+            NoteFailed(channel, Utils.SafeString(err, "?"))
         end
     end)
 end
@@ -190,6 +202,7 @@ local function ChatFilter(_, _, msg, ...)
 end
 
 function Announcer:OnEnable()
+    regenFrame:RegisterEvent("PLAYER_REGEN_ENABLED")   -- fight over: the pause note may show again next fight
     local util = ChatFrameUtil
     if util and util.AddMessageEventFilter then
         for _, event in ipairs(CHAT_EVENTS) do util.AddMessageEventFilter(event, ChatFilter) end
@@ -201,6 +214,8 @@ function Announcer:OnDisable()
     if util and util.RemoveMessageEventFilter then
         for _, event in ipairs(CHAT_EVENTS) do util.RemoveMessageEventFilter(event, ChatFilter) end
     end
+    regenFrame:UnregisterAllEvents()
+    pausedNoted = false
     lastCC, lastDisarm = 0, 0
     wipe(lastAbility)
 end

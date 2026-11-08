@@ -113,19 +113,34 @@ return function(sim, t)
     t.eq(#newChat(function() sim:Advance(3) end), 0, "throttled per player")
     sim:LeaveCombat()
 
-    -- Addon chat restricted (boss fight, restricted map): nothing is sent (it would be blocked), the alert shows
-    -- locally; whispers are skipped. [in-game 2026-11-08: a stun alert to party was blocked, ADDON_ACTION_BLOCKED]
+    -- Addon chat restricted (boss fight: [in-game] Chat,Combat,Encounter,Map): alerts are paused, not sent (it would
+    -- be blocked) and not shown; one note per fight says so (user's choice). Whispers are skipped.
+    local function notes(from)
+        local n = 0
+        for i = from + 1, #sim.output do if tostring(sim.output[i]):find("alerts are paused") then n = n + 1 end end
+        return n
+    end
     sim.chatRestricted = true
     sim:EnterCombat()
     sim.units.player.threatLead = 3
     printed = #sim.output
     t.eq(#castAndAvoid(355, "RESIST"), 0, "restricted: nothing sent")
-    t.contains({ unpack(sim.output, printed + 1) }, "RESISTED", "restricted: shown locally")
-    t.contains({ unpack(sim.output, printed + 1) }, "couldn't go to Party.*Chat", "restricted: says why, naming the restriction")
+    for i = printed + 1, #sim.output do
+        t.ok(not tostring(sim.output[i]):find("RESISTED"), "restricted: alert not shown locally")
+    end
+    t.eq(notes(printed), 1, "restricted: one note")
     sim:Advance(10)
     t.eq(#newChat(function() sim:Fire("UI_ERROR_MESSAGE", 51, "Can't do that while stunned") end), 0, "restricted: stun not sent")
     t.eq(#newChat(function() sim:Advance(2) end), 0, "restricted: no threat whispers")
+    t.eq(notes(printed), 1, "restricted: still one note for the whole fight")
     t.eq(#sim.violations, 0, "restricted: no blocked actions")
+    sim:LeaveCombat()
+    -- Next fight: the note comes back once.
+    sim:EnterCombat()
+    sim:Fire("LOSS_OF_CONTROL_UPDATE", "player")
+    printed = #sim.output
+    t.eq(#castAndAvoid(355, "RESIST"), 0, "next fight: still paused")
+    t.eq(notes(printed), 1, "next fight: note again")
     sim:LeaveCombat()
     sim.chatRestricted = false
     sim:Fire("LOSS_OF_CONTROL_UPDATE", "player")
