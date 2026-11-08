@@ -324,6 +324,11 @@ L["HELP_MARK_MAIN"] = "post the kill order, print the pack plan, show status"
 L["HELP_MARK_LEARN"] = "teach or forget the hovered/targeted mob"
 L["HELP_MARK_MISC"] = "clear the Shift-hover selection, toggle planned icons"
 
+-- Import from the standalone addons
+L["IMPORT_DONE"] = "Imported your settings from the standalone addons: %s."
+L["IMPORT_MOBS"] = "%s (%d learned mobs)"
+L["IMPORT_TEAM"] = "this character's team setup"
+
 -- Errors
 L["ERRORS_RECORDED"] = "Error recorded (|cffffd160/bwk errors|r): %s"
 L["ERRORS_NONE"] = "No errors recorded."
