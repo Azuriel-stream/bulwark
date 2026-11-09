@@ -21,6 +21,8 @@ NS.DefaultConfig.audit = {
     checkGroup = true,
     checkConsumables = true,
     consumableLevel = 1,        -- 1 = food only, 2 = + elixir, 3 = + flask
+    consumablesInGroup = true,  -- check consumables in a party or raid
+    consumablesSolo = false,    -- check consumables when ungrouped (both on = always)
     checkHealthstone = true,
     checkDebuffs = true,
     checkUnwanted = true,
@@ -93,15 +95,27 @@ NS:AddPage(area.key, {
         for i, def in ipairs(CHECKS) do
             local cb = Kit.Checkbox(card, L[def.text], L[def.text .. "_DESC"], function(checked)
                 cfg()[def.key] = checked
+                if def.key == "checkConsumables" then page:refresh() end -- greys the Consumables card
                 Rescan()
             end)
             cb:SetPoint("TOPLEFT", 12 + def.col * 300, -38 - math.floor((i - 1) / 2) * 32)
             page.checks[def.key] = cb
         end
 
-        -- Consumables: "+ Elixir" / "+ Flask" on top of food, at most one (radio-like checkboxes; no dropdowns,
-        -- kb/gotchas.md#menu-crash).
-        local cons = Card(parent, L["AUDIT_CARD_CONSUMABLES"], y - 150, 98)
+        -- Consumables: when (in a group / solo, independent: both = always), then "+ Elixir" / "+ Flask" on top of
+        -- food, at most one (radio-like checkboxes; no dropdowns, kb/gotchas.md#menu-crash). Greyed out while the
+        -- Consumables check above is off (values kept).
+        local cons = Card(parent, L["AUDIT_CARD_CONSUMABLES"], y - 150, 130)
+        page.consumablesWhen = {}
+        for i, opt in ipairs({ { key = "consumablesInGroup", label = "AUDIT_CONS_GROUP" },
+                               { key = "consumablesSolo", label = "AUDIT_CONS_SOLO" } }) do
+            local cb = Kit.Checkbox(cons, L[opt.label], L["AUDIT_CONS_WHEN_DESC"], function(checked)
+                cfg()[opt.key] = checked
+                Rescan()
+            end)
+            cb:SetPoint("TOPLEFT", 12 + (i - 1) * 300, -38)
+            page.consumablesWhen[opt.key] = cb
+        end
         page.consumables = {}
         for i, opt in ipairs({ { level = 2, label = "AUDIT_CONS_ELIXIR" }, { level = 3, label = "AUDIT_CONS_FLASK" } }) do
             local cb = Kit.Checkbox(cons, L[opt.label], L["AUDIT_CONS_DESC"], function(checked)
@@ -109,12 +123,12 @@ NS:AddPage(area.key, {
                 page:refresh()
                 Rescan()
             end)
-            cb:SetPoint("TOPLEFT", 12 + (i - 1) * 300, -38)
+            cb:SetPoint("TOPLEFT", 12 + (i - 1) * 300, -70)
             page.consumables[opt.level] = cb
         end
-        Note(cons, L["AUDIT_CONS_DESC"], 16, -68, 600)
+        page.consNote = Note(cons, L["AUDIT_CONS_DESC"], 16, -100, 600)
 
-        local thanks = Card(parent, L["AUDIT_CARD_THANKS"], y - 258, 70)
+        local thanks = Card(parent, L["AUDIT_CARD_THANKS"], y - 290, 70)
         page.gratitude = Kit.Checkbox(thanks, L["AUDIT_OPT_GRATITUDE"], L["AUDIT_OPT_GRATITUDE_DESC"], function(checked)
             cfg().gratitude = checked
         end)
@@ -122,7 +136,16 @@ NS:AddPage(area.key, {
     end,
     refresh = function(page)
         for key, cb in pairs(page.checks) do cb:SetChecked(cfg()[key]) end
-        for level, cb in pairs(page.consumables) do cb:SetChecked(cfg().consumableLevel == level) end
+        local consOn = cfg().checkConsumables and true or false
+        for key, cb in pairs(page.consumablesWhen) do
+            cb:SetChecked(cfg()[key])
+            cb:SetActive(consOn)
+        end
+        for level, cb in pairs(page.consumables) do
+            cb:SetChecked(cfg().consumableLevel == level)
+            cb:SetActive(consOn)
+        end
+        Kit.SetTextColor(page.consNote, consOn and C.muted or C.disabled)
         page.gratitude:SetChecked(cfg().gratitude)
     end,
 })

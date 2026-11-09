@@ -45,6 +45,42 @@ return function(sim, t)
     t.ok(checks.consumables[3]:GetChecked() and not checks.consumables[2]:GetChecked(), "only one add-on checked")
     checks.consumables[3]:Click()
     t.eq(cfg.consumableLevel, 1, "unchecking it means food only")
+    -- Consumables when: In a group / Solo are independent (both = always)
+    t.ok(checks.consumablesWhen.consumablesInGroup:GetChecked(), "In a group ticked by default")
+    t.ok(not checks.consumablesWhen.consumablesSolo:GetChecked(), "Solo unticked by default")
+    checks.consumablesWhen.consumablesSolo:Click()
+    t.eq(cfg.consumablesSolo, true, "Solo checkbox")
+    t.eq(cfg.consumablesInGroup, true, "In a group stays ticked (both)")
+    checks.consumablesWhen.consumablesInGroup:Click()
+    t.eq(cfg.consumablesInGroup, false, "In a group checkbox")
+    checks.consumablesWhen.consumablesInGroup:Click()
+    checks.consumablesWhen.consumablesSolo:Click()
+    -- Consumables off: its card's options grey out (unclickable, dim label) and keep their values
+    local function cardActive(on)
+        for _, cb in pairs(checks.consumablesWhen) do if cb:IsEnabled() ~= on then return false end end
+        for _, cb in pairs(checks.consumables) do if cb:IsEnabled() ~= on then return false end end
+        return true
+    end
+    t.ok(cardActive(true), "Consumables on: card options active")
+    local white = { checks.consumablesWhen.consumablesSolo.Text:GetTextColor() }
+    checks.consumables[2]:Click()                    -- + Elixir, to see it survive the greying
+    checks.checks.checkConsumables:Click()
+    t.eq(cfg.checkConsumables, false, "Consumables unticked")
+    t.ok(cardActive(false), "Consumables off: all card options greyed out")
+    t.ok(select(1, checks.consumablesWhen.consumablesSolo.Text:GetTextColor()) < white[1], "greyed label is dimmer")
+    checks.consumablesWhen.consumablesSolo:Click()
+    checks.consumables[3]:Click()
+    t.eq(cfg.consumablesSolo, false, "greyed Solo can't be clicked")
+    t.eq(cfg.consumableLevel, 2, "greyed + Flask can't be clicked; + Elixir kept")
+    t.ok(checks.consumables[2]:GetChecked(), "+ Elixir still shown ticked while greyed")
+    NS.Window:Select("alerts")
+    checks = page("checks")
+    t.ok(cardActive(false), "still greyed after reopening the page")
+    checks.checks.checkConsumables:Click()
+    t.ok(cardActive(true), "Consumables on again: options active")
+    t.eq(select(1, checks.consumablesWhen.consumablesSolo.Text:GetTextColor()), white[1], "label colour restored")
+    checks.consumables[2]:Click()
+    t.eq(cfg.consumableLevel, 1, "back to food only")
     checks.gratitude:Click()
     t.eq(cfg.gratitude, false, "thanks checkbox")
 

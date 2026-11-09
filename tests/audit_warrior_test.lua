@@ -5,6 +5,27 @@ return function(sim, t)
     -- Solo, Battle Shout not learned: nothing to check
     t.eq(#H.Shown(sim), 0, "solo warrior without Battle Shout shows nothing")
 
+    -- Consumables solo: off by default (above); "Solo" ticked -> food and weapon tiles, elixir/flask add-on too
+    local solo = t.fresh(function(s)
+        H.Party(s)
+        s.group = "none"                             -- really ungrouped (the sim starts in a party)
+    end)
+    local audit = solo.env.BulwarkDB.audit
+    t.eq(audit.consumablesSolo, false, "solo consumables off by default")
+    t.eq(audit.consumablesInGroup, true, "group consumables on by default")
+    H.Rescan(solo)
+    t.eq(#H.Shown(solo), 0, "solo, defaults: no consumable tiles: " .. H.Keys(solo))
+    audit.consumablesSolo = true
+    audit.consumableLevel = 3
+    H.Rescan(solo)
+    for _, key in ipairs({ "CONS:WELL_FED", "CONS:WEAPON_BUFF", "CONS:FLASK" }) do
+        t.ok(H.Find(solo, key), "solo consumables: " .. key .. " expected in: " .. H.Keys(solo))
+    end
+    t.ok(not H.Find(solo, "HEALTHSTONE") and not H.Find(solo, "GROUP:FORTITUDE"), "solo: still no group tiles: " .. H.Keys(solo))
+    audit.checkConsumables = false
+    H.Rescan(solo)
+    t.eq(#H.Shown(solo), 0, "Consumables master switch off wins over Solo")
+
     local w = t.fresh(function(s)
         H.Party(s)
         s.known[6673] = true                         -- Battle Shout
@@ -44,6 +65,17 @@ return function(sim, t)
     t.ok(elixirIds[673] and elixirIds[1250920] and elixirIds[17538], "elixir tile: Minor Defense, Phalanx, Mongoose")
     t.ok(not elixirIds[7178], "utility draughts (water breathing) don't count as an elixir")
     w.env.BulwarkDB.audit.consumableLevel = 1
+    H.Rescan(w)
+
+    -- "In a group" unticked: no consumable tiles in the party (other tiles unaffected)
+    w.env.BulwarkDB.audit.consumablesInGroup = false
+    H.Rescan(w)
+    t.ok(not H.Find(w, "CONS:WELL_FED") and not H.Find(w, "CONS:WEAPON_BUFF"), "group consumables off: " .. H.Keys(w))
+    t.ok(H.Find(w, "GROUP:FORTITUDE"), "group buffs still checked")
+    w.env.BulwarkDB.audit.consumablesSolo = true
+    H.Rescan(w)
+    t.ok(not H.Find(w, "CONS:WELL_FED"), "Solo ticked doesn't apply in a party")
+    w.env.BulwarkDB.audit.consumablesInGroup, w.env.BulwarkDB.audit.consumablesSolo = true, false
     H.Rescan(w)
 
     -- Weapon tile uses Blizzard's item-enchant display, sized by us

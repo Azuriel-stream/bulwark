@@ -176,28 +176,28 @@ function Scanner:BuildPlan(helpful)
                 end
             end
         end
+    end
 
-        -- 3. Consumables
-        if c.checkConsumables then
-            local function Consumable(key, ids)
-                local idSet = Utils.ToSet(ids)
-                local item = { tileKey = "CONS:" .. key, key = key, label = L[key], action = { type = "bags" },
-                               ids = idSet, warn = CONSUMABLE_WARN, expiresAt = ExpiryOf(FindAura(byId, idSet)) }
-                tiles[#tiles + 1] = item
-                return item
+    -- 3. Consumables: in a group, solo, or both (user's choice)
+    if c.checkConsumables and (solo and c.consumablesSolo or not solo and c.consumablesInGroup) then
+        local function Consumable(key, ids)
+            local idSet = Utils.ToSet(ids)
+            local item = { tileKey = "CONS:" .. key, key = key, label = L[key], action = { type = "bags" },
+                           ids = idSet, warn = CONSUMABLE_WARN, expiresAt = ExpiryOf(FindAura(byId, idSet)) }
+            tiles[#tiles + 1] = item
+            return item
+        end
+        local fed = Consumable("WELL_FED", D.WELL_FED)
+        if fed.expiresAt == nil then
+            for _, aura in ipairs(helpful or {}) do
+                if aura.name == L["WELL_FED"] then fed.expiresAt = ExpiryOf(aura) break end
             end
-            local fed = Consumable("WELL_FED", D.WELL_FED)
-            if fed.expiresAt == nil then
-                for _, aura in ipairs(helpful or {}) do
-                    if aura.name == L["WELL_FED"] then fed.expiresAt = ExpiryOf(aura) break end
-                end
-            end
-            if c.consumableLevel == 2 then Consumable("ELIXIR", D.ELIXIRS) elseif c.consumableLevel == 3 then Consumable("FLASK", D.FLASKS) end
-            local weapon = Consumable("WEAPON_BUFF", {})
-            local hasEnchant, secondsLeft = MainHandEnchant()
-            if hasEnchant then
-                weapon.expiresAt = secondsLeft > 0 and (GetTime() + secondsLeft) or 0
-            end
+        end
+        if c.consumableLevel == 2 then Consumable("ELIXIR", D.ELIXIRS) elseif c.consumableLevel == 3 then Consumable("FLASK", D.FLASKS) end
+        local weapon = Consumable("WEAPON_BUFF", {})
+        local hasEnchant, secondsLeft = MainHandEnchant()
+        if hasEnchant then
+            weapon.expiresAt = secondsLeft > 0 and (GetTime() + secondsLeft) or 0
         end
     end
 

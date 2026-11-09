@@ -19,6 +19,7 @@ Kit.C = {
     goldText    = { 1.00, 0.82, 0.38, 1 },
     text        = { 0.92, 0.92, 0.93, 1 },
     muted       = { 0.58, 0.60, 0.63, 1 },
+    disabled    = { 0.40, 0.41, 0.43, 1 },  -- labels of greyed-out options
     bannerTop   = { 0.17, 0.23, 0.29, 1 },
     bannerBot   = { 0.03, 0.035, 0.045, 1 },
     tab         = { 1, 1, 1, 0.00 },
@@ -239,6 +240,12 @@ function Kit.Checkbox(parent, text, tooltip, onClick)
         if onClick then onClick(self:GetChecked() and true or false) end
     end)
     if tooltip then Kit.Tooltip(cb, text, tooltip) end
+    -- Greyed out when an option it depends on is off: the box can't be clicked and the label dims. The value stays.
+    local r, g, b, a = cb.Text:GetTextColor()
+    function cb:SetActive(enabled)
+        self:SetEnabled(enabled)
+        if enabled then self.Text:SetTextColor(r, g, b, a) else Kit.SetTextColor(self.Text, C.disabled) end
+    end
     return cb
 end
 
