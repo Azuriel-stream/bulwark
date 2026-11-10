@@ -7,6 +7,15 @@ local Gratitude = NS:RegisterModule("AuditGratitude", "audit")
 
 local REQUEST_WINDOW = 60  -- seconds after a request during which a new buff counts as the answer
 
+-- Only a fresh application answers the request. When the tile was clicked while the buff was still up (expiring),
+-- that old copy is on the player at every scan; it only counts once a recast pushes its expiry past the old one.
+local function IsNewer(aura, oldExpiry)
+    if oldExpiry == nil then return true end           -- it was missing when we asked
+    local expires = aura.expirationTime
+    if not expires or Utils.IsSecret(expires) then return false end
+    return expires > oldExpiry + 1
+end
+
 function Gratitude:Check(helpfulAuras)
     local Requests = NS.AuditRequests
     local pending = Requests.pending
@@ -16,7 +25,7 @@ function Gratitude:Check(helpfulAuras)
         return
     end
     for _, aura in ipairs(helpfulAuras) do
-        if pending.ids[aura.spellId] then
+        if pending.ids[aura.spellId] and IsNewer(aura, pending.oldExpiry) then
             Requests.pending = nil
             if not NS.db.audit.gratitude then return end
             local source = aura.sourceUnit

@@ -61,7 +61,10 @@ function Requests:Request(entry)
 
     C_ChatInfo.SendChatMessage(self:BuildMessage(entry), channel)
     if entry.watchIds then
-        Requests.pending = { ids = entry.watchIds, time = now, spellText = Utils.SpellChatName(entry.spellId, entry.label) }
+        -- oldExpiry: the expiry of the copy we still had when asking (clicked while expiring), so Gratitude
+        -- doesn't mistake that old buff for the answer. nil = it was missing.
+        Requests.pending = { ids = entry.watchIds, time = now, spellText = Utils.SpellChatName(entry.spellId, entry.label),
+                             oldExpiry = entry.expiresAt }
     end
 end
 

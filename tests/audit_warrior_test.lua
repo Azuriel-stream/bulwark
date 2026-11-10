@@ -126,6 +126,22 @@ return function(sim, t)
     t.ok(not thanks.msg:find("|H", 1, true), "gratitude contains no spell link")
     t.ok(thanks.msg:find("[Power Word: Fortitude]", 1, true), "gratitude names the spell as plain [Name]")
 
+    -- Clicked while expiring: the old copy still on us is not the answer; only the recast earns a thank-you
+    local fortAura = w.units.player.auras[#w.units.player.auras]
+    fortAura.expirationTime = w.now + 30
+    w:Advance(6)                                     -- past the request throttle; replans with the expiring buff
+    fort = H.Find(w, "GROUP:FORTITUDE")
+    t.ok(fort, "expiring Fortitude tile shown: " .. H.Keys(w))
+    local chatCount = #w.chat
+    fort:Click()
+    t.eq(#w.chat, chatCount + 1, "expiring request sent")
+    w:Advance(4)                                     -- several scans with the old buff still up
+    t.eq(#w.chat, chatCount + 1, "no thanks for the buff we already had")
+    fortAura.expirationTime = w.now + 3600           -- the priest recasts
+    H.Rescan(w)
+    t.eq(#w.chat, chatCount + 2, "thanks once the buff is recast")
+    t.eq(w.chat[#w.chat].channel, "WHISPER", "the recast earns the whisper")
+
     -- Top row: Salvation watch + one debuff tile per type the group can remove (priest: Magic/Disease, paladin: +Poison)
     local Bar = w.env.Bulwark.AuditBar
     t.ok(Bar:GetSalvationHolder():IsShown(), "Salvation slot watched")
