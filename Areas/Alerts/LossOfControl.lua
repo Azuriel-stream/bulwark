@@ -81,11 +81,15 @@ local function OnLossOfControlAdded(index)
     if not (C_LossOfControl and C_LossOfControl.GetActiveLossOfControlData) then return end
     local ok, data = pcall(C_LossOfControl.GetActiveLossOfControlData, index)
     if not ok or type(data) ~= "table" then return end
-    local kind = LOC_TYPES[Utils.SafeString(data.locType, "")]
+    -- Since build 70888 this data is always secret (SecretWhenLossOfControlRestricted) [docs]. Read the fields under
+    -- pcall in case the table itself is secret; secret fields come back as "" / nil and the UI-error path takes over.
+    local okRead, locType, locName, locSpell = pcall(function() return data.locType, data.name, data.spellID end)
+    if not okRead then return end
+    local kind = LOC_TYPES[Utils.SafeString(locType, "")]
     if not kind then
-        local name = Utils.SafeString(data.name, "")
+        local name = Utils.SafeString(locName, "")
         if name == "" then
-            local id = Utils.SafeNumber(data.spellID)
+            local id = Utils.SafeNumber(locSpell)
             local okName, spell = pcall(C_Spell.GetSpellName, id)
             name = okName and Utils.SafeString(spell, "") or ""
         end
