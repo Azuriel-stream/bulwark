@@ -5,6 +5,7 @@
 -- sources: spell (applies the enchant), enchant, slots (equipment slot IDs), req (item the slot must hold:
 --   shield/holdable/2h/weapon/ranged), origin (vanilla/forever), reagents {itemID, count, ...} for recipes or
 --   item = the item that applies it (reqLevel = player level it needs), minIlvl = lowest item level it can go on.
+-- quality[itemID]: item quality of mats and enchanting items (list order: best quality first).
 local ADDON_NAME, NS = ...
 NS.EnchantData = {
     build = "1.60.1.70888",
@@ -243,5 +244,92 @@ NS.EnchantData = {
         { spell = 7216, enchant = 43, slots = { 17 }, req = "shield", origin = "vanilla", item = 6042 },  -- Iron Shield Spike
         { spell = 9781, enchant = 463, slots = { 17 }, req = "shield", origin = "vanilla", item = 7967 },  -- Mithril Shield Spike
         { spell = 16623, enchant = 1704, slots = { 17 }, req = "shield", origin = "vanilla", item = 12645 },  -- Thorium Shield Spike
+    },
+    -- [itemID] = quality (0 poor, 1 common, 2 uncommon, 3 rare, 4 epic) of every mat and enchanting item
+    quality = {
+        [2304] = 1,  -- Light Armor Kit
+        [2313] = 1,  -- Medium Armor Kit
+        [3829] = 1,  -- Frost Oil
+        [4265] = 1,  -- Heavy Armor Kit
+        [5421] = 1,  -- Fiery Blaze Enchantment
+        [6042] = 1,  -- Iron Shield Spike
+        [6048] = 1,  -- Shadow Protection Potion
+        [6371] = 1,  -- Fire Oil
+        [7075] = 1,  -- Core of Earth
+        [7076] = 2,  -- Essence of Earth
+        [7077] = 1,  -- Heart of Fire
+        [7078] = 2,  -- Essence of Fire
+        [7079] = 1,  -- Globe of Water
+        [7080] = 2,  -- Essence of Water
+        [7081] = 1,  -- Breath of Wind
+        [7082] = 2,  -- Essence of Air
+        [7967] = 2,  -- Mithril Shield Spike
+        [7972] = 1,  -- Ichor of Undeath
+        [8173] = 1,  -- Thick Armor Kit
+        [9224] = 1,  -- Potion of Demon Slaying
+        [10938] = 2,  -- Lesser Magic Essence
+        [10940] = 1,  -- Strange Dust
+        [10978] = 3,  -- Small Glimmering Shard
+        [10998] = 2,  -- Lesser Astral Essence
+        [11083] = 1,  -- Soul Dust
+        [11084] = 3,  -- Large Glimmering Shard
+        [11134] = 2,  -- Lesser Mystic Essence
+        [11135] = 2,  -- Greater Mystic Essence
+        [11137] = 1,  -- Vision Dust
+        [11138] = 3,  -- Small Glowing Shard
+        [11139] = 3,  -- Large Glowing Shard
+        [11174] = 2,  -- Lesser Nether Essence
+        [11175] = 2,  -- Greater Nether Essence
+        [11176] = 1,  -- Dream Dust
+        [11177] = 3,  -- Small Radiant Shard
+        [11178] = 3,  -- Large Radiant Shard
+        [11642] = 2,  -- Lesser Arcanum of Constitution
+        [11643] = 2,  -- Lesser Arcanum of Tenacity
+        [11644] = 2,  -- Lesser Arcanum of Resilience
+        [11645] = 2,  -- Lesser Arcanum of Voracity
+        [11646] = 2,  -- Lesser Arcanum of Voracity
+        [11647] = 2,  -- Lesser Arcanum of Voracity
+        [12363] = 2,  -- Arcane Crystal
+        [12645] = 2,  -- Thorium Shield Spike
+        [12803] = 2,  -- Living Essence
+        [12808] = 2,  -- Essence of Undeath
+        [12809] = 2,  -- Guardian Stone
+        [12811] = 2,  -- Righteous Orb
+        [13467] = 1,  -- Icecap
+        [14343] = 3,  -- Small Brilliant Shard
+        [14344] = 3,  -- Large Brilliant Shard
+        [15564] = 1,  -- Rugged Armor Kit
+        [16202] = 2,  -- Lesser Eternal Essence
+        [16203] = 2,  -- Greater Eternal Essence
+        [16204] = 1,  -- Illusion Dust
+        [18169] = 2,  -- Flame Mantle of the Dawn
+        [18170] = 2,  -- Frost Mantle of the Dawn
+        [18171] = 2,  -- Arcane Mantle of the Dawn
+        [18172] = 2,  -- Nature Mantle of the Dawn
+        [18173] = 2,  -- Shadow Mantle of the Dawn
+        [18182] = 2,  -- Chromatic Mantle of the Dawn
+        [18251] = 3,  -- Core Armor Kit
+        [18331] = 2,  -- Arcanum of Protection
+        [19782] = 3,  -- Presence of Might
+        [19783] = 3,  -- Syncretist's Sigil
+        [19784] = 3,  -- Death's Embrace
+        [19785] = 3,  -- Falcon's Call
+        [20077] = 3,  -- Zandalar Signet of Might
+        [20725] = 4,  -- Nexus Crystal
+        [22635] = 3,  -- Savage Guard
+        [22636] = 3,  -- Ice Guard
+        [22638] = 3,  -- Shadow Guard
+        [23548] = 4,  -- Might of the Scourge
+        [23549] = 4,  -- Fortitude of the Scourge
+        [247786] = 1,  -- Mote of Magic
+        [249409] = 2,  -- Cerulean Dye
+        [249410] = 2,  -- Sulfuric Acid
+        [249425] = 2,  -- Bauxite
+        [249430] = 2,  -- Magenta Dye
+        [252437] = 2,  -- Forceful Medium Armor Kit
+        [252453] = 2,  -- Forceful Heavy Armor Kit
+        [252463] = 2,  -- Forceful Thick Armor Kit
+        [252488] = 2,  -- Forceful Rugged Armor Kit
+        [279258] = 3,  -- Wild Leather Armor Kit
     },
 }

@@ -67,6 +67,7 @@ Areas\Utilities\ItemTooltip.lua
 Areas\Utilities\MobTooltip.lua
 Areas\Utilities\Area.lua
 Areas\Utilities\GearPage.lua
+Areas\Utilities\MatsTracker.lua
 
 # Settings tab, minimap button, slash commands
 UI\Settings.lua

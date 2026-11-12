@@ -529,6 +529,7 @@ NS:AddPage(area.key, {
 
 area.commandHelp = {
     "|cffffd160/bwk utilities avoid|r  " .. L["HELP_UTIL_AVOID"],
+    "|cffffd160/bwk utilities tracker [reset]|r  " .. L["HELP_UTIL_TRACKER"],
 }
 
 function area.command(args)
@@ -547,6 +548,13 @@ function area.command(args)
         print("  " .. table.concat(parts, ", "))
         print(string.format("  total %s, uncrushable %s, crit immune %s (need %d)", Pct(r.total),
             tostring(r.uncrushable), tostring(r.critImmune), r.defenseNeeded))
+    elseif cmd == "tracker" then
+        if (args:match("^%S+%s+(%S+)") or ""):lower() == "reset" then
+            NS.MatsTracker:ResetPosition()
+            NS.MatsTracker:SetShown(true)
+        else
+            NS.MatsTracker:SetShown(not NS.char.gear.tracker.shown)
+        end
     else
         for _, line in ipairs(area.commandHelp) do print("  " .. line) end
     end

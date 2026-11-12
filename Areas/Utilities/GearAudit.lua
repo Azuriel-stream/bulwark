@@ -201,7 +201,7 @@ end
 
 -- Picks with their state, and the summed mats of the ones still to do.
 -- picks = { { key, set (key), slot, src, done } } (done = the item in that slot already has the enchant: not counted)
--- mats = { { item, need } } sorted by item ID; item sources count the item itself once.
+-- mats = { { item, need } } in Gear.SortMats order; item sources count the item itself once.
 function Gear.ShoppingList()
     local setByKey = {}
     for _, s in ipairs(Gear.Sets()) do setByKey[s.key] = s end
@@ -236,8 +236,28 @@ function Gear.ShoppingList()
     end)
     local mats = {}
     for id, n in pairs(need) do mats[#mats + 1] = { item = id, need = n } end
-    table.sort(mats, function(a, b) return a.item < b.item end)
-    return picks, mats
+    return picks, Gear.SortMats(mats)
+end
+
+-- Item quality (0 poor .. 4 epic): generated data first (no item cache needed), else the client.
+function Gear.Quality(itemID)
+    local q = NS.EnchantData and NS.EnchantData.quality and NS.EnchantData.quality[itemID]
+    if not q and C_Item.GetItemQualityByID then q = Call(C_Item.GetItemQualityByID, itemID) end
+    return type(q) == "number" and q or 1
+end
+
+-- One order for the Enchant list and the tracker (user, 2026-11-12): best quality first (epic .. common), then name.
+function Gear.SortMats(mats)
+    for _, m in ipairs(mats) do
+        m.quality = Gear.Quality(m.item)
+        m.name = Gear.ItemName(m.item) or ("#" .. m.item)
+    end
+    table.sort(mats, function(a, b)
+        if a.quality ~= b.quality then return a.quality > b.quality end
+        if a.name ~= b.name then return a.name < b.name end
+        return a.item < b.item
+    end)
+    return mats
 end
 
 -- Picks still to do (the slot doesn't have the enchant yet).

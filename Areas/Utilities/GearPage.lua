@@ -621,6 +621,15 @@ NS:AddPage("utilities", {
         page.mats = ScrollRows(mats, MAT_ROWS, -38, function(card) return TextRow(card, false) end)
         page.matsNote = Kit.Text(mats, 12, C.muted)
         page.matsNote:SetPoint("TOPLEFT", 16, -42)
+        page.track = Kit.Button(mats, "", 130, function()
+            NS.MatsTracker:SetShown(not NS.char.gear.tracker.shown)
+            page:refresh()
+        end)
+        page.track:SetHeight(20)
+        page.track:SetPoint("TOPRIGHT", -14, -5)
+        Kit.Tooltip(page.track, L["TRACKER_TITLE"], L["TRACKER_DESC"])
+        page.mats.more:ClearAllPoints()
+        page.mats.more:SetPoint("RIGHT", page.track, "LEFT", -12, 0)
 
         local pending = false
         local function Later()
@@ -659,6 +668,7 @@ NS:AddPage("utilities", {
             end
         end)
         page.matsNote:SetText(#mats == 0 and (#picks > 0 and L["MATS_ALL_DONE"] or "") or "")
+        page.track:SetLabel(NS.char.gear.tracker.shown and L["BTN_TRACK_HIDE"] or L["BTN_TRACK_SHOW"])
         page.mats:Show(mats, function(row, m)
             local have = Gear.Have(m.item)
             row.left:SetText(Gear.ItemName(m.item) or ("#" .. m.item))
