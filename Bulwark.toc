@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: |cffD9AA3CBulwark|r
-## Notes: Tanking suite: combat alerts, pre-pull audit and one-key raid marking in one window.
+## Notes: Tanking suite: combat alerts, pre-pull audit, one-key raid marking and tank utilities in one window.
 ## Author: Azuriel
-## Version: 0.6.0
+## Version: 0.7.0
 ## IconTexture: Interface\AddOns\Bulwark\Media\icon.tga
 ## Category: Tanking
 ## AddonCompartmentFunc: Bulwark_OnCompartmentClick
@@ -58,6 +58,9 @@ Areas\Marking\Overlay.lua
 Areas\Marking\HUD.lua
 Areas\Marking\Keys.lua
 Areas\Marking\Area.lua
+# Utilities: tank helpers (Avoidance)
+Areas\Utilities\Avoidance.lua
+Areas\Utilities\Area.lua
 
 # Settings tab, minimap button, slash commands
 UI\Settings.lua

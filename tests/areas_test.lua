@@ -48,7 +48,7 @@ return function(sim, t)
     -- Settings > Areas page mirrors and moves the switches.
     NS.Window:Select("settings", "areas")
     local page = NS:GetArea("settings").pages[1]
-    t.eq(#page.rows, 3, "one row per area")
+    t.eq(#page.rows, 4, "one row per area")
     local row = page.rows[3]
     t.eq(row.area.key, "marking", "rows in tab order")
     row.switch:Click()

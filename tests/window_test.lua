@@ -19,7 +19,7 @@ return function(sim, t)
     -- Tabs in order, Settings last; every tab and page builds without errors.
     local keys = {}
     for _, area in ipairs(NS.areas) do keys[#keys + 1] = area.key end
-    t.eq(table.concat(keys, ","), "alerts,audit,marking,settings", "area order")
+    t.eq(table.concat(keys, ","), "alerts,audit,marking,utilities,settings", "area order")
     sim:Slash("/bwk")
     for _, area in ipairs(NS.areas) do
         Window.tabs[area.key]:Click()
