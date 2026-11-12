@@ -26,6 +26,10 @@ NS.DefaultConfig.audit = {
     checkHealthstone = true,
     checkDebuffs = true,
     checkUnwanted = true,
+    checkDefenseSkill = true,   -- tile: defense skill below the level cap (groups only)
+    checkShield = true,         -- tile: tanking (Defensive Stance / Righteous Fury) without a shield
+    checkDurability = true,     -- tile: an equipped item at or below durabilityWarn %
+    durabilityWarn = 25,
     gratitude = true,           -- whisper the caster when a requested buff arrives
     watchSound = true,          -- in-combat sound when Battle Shout / Righteous Fury is about to fade
     watchWarnSeconds = 15,
@@ -147,6 +151,44 @@ NS:AddPage(area.key, {
         end
         Kit.SetTextColor(page.consNote, consOn and C.muted or C.disabled)
         page.gratitude:SetChecked(cfg().gratitude)
+    end,
+})
+
+---------------------------------------------------------------------------------------------------------------
+-- Gear: tank gear warning tiles (Utilities feature 8; user 2026-11-12: Audit tiles)
+---------------------------------------------------------------------------------------------------------------
+
+local GEAR_CHECKS = {
+    { key = "checkDefenseSkill", text = "AUDIT_OPT_DEFENSE_SKILL" },
+    { key = "checkShield", text = "AUDIT_OPT_SHIELD" },
+    { key = "checkDurability", text = "AUDIT_OPT_DURABILITY" },
+}
+
+NS:AddPage(area.key, {
+    key = "gear",
+    title = L["PAGE_GEAR"],
+    build = function(page, parent)
+        local y = Header(parent, L["PAGE_GEAR"], L["AUDIT_GEAR_DESC"])
+        local card = Card(parent, L["AUDIT_CARD_GEAR"], y, 40 + #GEAR_CHECKS * 50 + 70)
+        page.checks = {}
+        for i, def in ipairs(GEAR_CHECKS) do
+            local cb = Kit.Checkbox(card, L[def.text], nil, function(checked)
+                cfg()[def.key] = checked
+                page:refresh()
+                Rescan()
+            end)
+            cb:SetPoint("TOPLEFT", 12, -38 - (i - 1) * 50)
+            Note(card, L[def.text .. "_DESC"], 44, -62 - (i - 1) * 50, 580)
+            page.checks[def.key] = cb
+        end
+        page.durability = Kit.Slider(card, L["AUDIT_OPT_DURABILITY_WARN"], 10, 50, 5,
+            function(v) return string.format("%d%%", v) end,
+            function(v) cfg().durabilityWarn = v; Rescan() end)
+        page.durability:SetPoint("TOPLEFT", 12, -38 - #GEAR_CHECKS * 50 - 22)
+    end,
+    refresh = function(page)
+        for key, cb in pairs(page.checks) do cb:SetChecked(cfg()[key]) end
+        page.durability:SetValue(cfg().durabilityWarn or 25)
     end,
 })
 

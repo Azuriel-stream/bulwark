@@ -82,6 +82,10 @@ local function TileDefs(class)
     defs[#defs + 1] = { tileKey = "CONS:FLASK", kind = "aura", ids = D.FLASKS, icon = D.ICONS.FLASK, warn = CONSUMABLE_WARN }
     defs[#defs + 1] = { tileKey = "CONS:WEAPON_BUFF", kind = "enchant", icon = D.ICONS.WEAPON_BUFF, warn = CONSUMABLE_WARN }
     defs[#defs + 1] = { tileKey = "HEALTHSTONE", kind = "plain", icon = D.ICONS.HEALTHSTONE }
+    -- Tank gear warnings (Scanner step 5)
+    for _, key in ipairs({ "DEFENSE_SKILL", "NO_SHIELD", "DURABILITY" }) do
+        defs[#defs + 1] = { tileKey = "GEAR:" .. key, kind = "plain", icon = D.ICONS[key] }
+    end
     return defs
 end
 
@@ -127,7 +131,9 @@ local function ShowTooltip(tile)
     if not item then return end
     GameTooltip:SetOwner(tile, "ANCHOR_RIGHT")
     GameTooltip:SetText(item.label or "?", 1, 1, 1)
-    if item.expiresAt and item.expiresAt > 0 then
+    if item.detail then
+        GameTooltip:AddLine(item.detail, 1, 0.82, 0, true)     -- gear warnings say what's wrong
+    elseif item.expiresAt and item.expiresAt > 0 then
         GameTooltip:AddLine(string.format(L["HINT_EXPIRING"], Utils.FormatTime(item.expiresAt - GetTime())), 1, 0.82, 0)
     else
         GameTooltip:AddLine(L["HINT_MISSING"], 1, 0.3, 0.3)

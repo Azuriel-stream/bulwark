@@ -15,6 +15,7 @@ NS.DefaultConfig.utilities = {
     mobOffset = 3,                                      -- attacker level above the player: 3 = raid boss
     count = { shieldBlock = false, holyShield = false }, -- block cooldowns counted in the table
     tooltip = false,                                    -- item tooltip note (user: off by default)
+    mobTooltip = false,                                 -- mob tooltip: can it crush you (user: an option)
 }
 
 local function cfg() return NS.db.utilities end
@@ -507,9 +508,18 @@ NS:AddPage(area.key, {
         page.tooltip:SetPoint("TOPLEFT", 12, -38)
         local note = Kit.Paragraph(card, L["OPT_ITEM_TOOLTIP_DESC"], 600, 11, C.muted)
         note:SetPoint("TOPLEFT", 44, -66)
+
+        local mobs = Card(parent, L["CARD_MOB_TOOLTIPS"], y - 142, 116)
+        page.mobTooltip = Kit.Checkbox(mobs, L["OPT_MOB_TOOLTIP"], nil, function(checked)
+            cfg().mobTooltip = checked
+        end)
+        page.mobTooltip:SetPoint("TOPLEFT", 12, -38)
+        local mobNote = Kit.Paragraph(mobs, L["OPT_MOB_TOOLTIP_DESC"], 600, 11, C.muted)
+        mobNote:SetPoint("TOPLEFT", 44, -66)
     end,
     refresh = function(page)
         page.tooltip:SetChecked(cfg().tooltip and true or false)
+        page.mobTooltip:SetChecked(cfg().mobTooltip and true or false)
     end,
 })
 

@@ -122,6 +122,54 @@ function Scanner.MoveBlessing(index, direction)
     list[index], list[target] = list[target], list[index]
 end
 
+local SLOT_COUNT = 18
+local function GearTile(key, detail)
+    return { tileKey = "GEAR:" .. key, key = key, label = L["GEAR_" .. key], detail = detail, alwaysShow = true }
+end
+
+-- Gear warning tiles (only what's wrong):
+--   defense skill below level x 5 (groups only: it lags after every level-up while you quest),
+--   tanking (Defensive Stance / Righteous Fury) without a shield,
+--   an equipped item at or below c.durabilityWarn % durability.
+function Scanner.GearWarnings(c, solo, byId)
+    local out = {}
+    local level = Utils.SafeNumber(UnitLevel("player"))
+    if c.checkDefenseSkill and not solo and level then
+        local ok, base, mod = pcall(UnitDefenseSkill, "player")
+        base, mod = ok and Utils.SafeNumber(base), ok and Utils.SafeNumber(mod, 0) or 0
+        local cap = level * 5
+        if base and base < cap then
+            local detail = string.format(L["GEAR_DEFENSE_SKILL_DETAIL"], base, cap)
+            if base + mod < cap then detail = detail .. " " .. L["GEAR_DEFENSE_SKILL_CRUSH"] end
+            out[#out + 1] = GearTile("DEFENSE_SKILL", detail)
+        end
+    end
+    if c.checkShield then
+        local class = NS.playerClass
+        local tanking = (class == "WARRIOR" and IsStanceActive(71)) or (class == "PALADIN" and byId and byId[25780] ~= nil)
+        if tanking and not Utils.HasShield() then
+            out[#out + 1] = GearTile("NO_SHIELD", L["GEAR_NO_SHIELD_DETAIL"])
+        end
+    end
+    if c.checkDurability then
+        local lowest, lowestSlot
+        for slot = 1, SLOT_COUNT do
+            local ok, cur, max = pcall(GetInventoryItemDurability, slot)
+            cur, max = ok and Utils.SafeNumber(cur), ok and Utils.SafeNumber(max)
+            if cur and max and max > 0 then
+                local pct = cur / max * 100
+                if not lowest or pct < lowest then lowest, lowestSlot = pct, slot end
+            end
+        end
+        if lowest and lowest <= (c.durabilityWarn or 25) then
+            local link = GetInventoryItemLink("player", lowestSlot)
+            local name = type(link) == "string" and link:match("%[(.-)%]") or "?"
+            out[#out + 1] = GearTile("DURABILITY", string.format(L["GEAR_DURABILITY_DETAIL"], name, lowest))
+        end
+    end
+    return out
+end
+
 -- Every tile that applies right now (the bar shows only missing/expiring ones; the rest wait invisibly so they can
 -- fade in during combat when they approach expiry).
 function Scanner:BuildPlan(helpful)
@@ -212,6 +260,9 @@ function Scanner:BuildPlan(helpful)
                 messageKey = "HEALTHSTONE", action = { type = "request" }, alwaysShow = true }
         end
     end
+
+    -- 5. Tank gear (user 2026-11-12: these warnings are Audit tiles). Prompts: shown while planned.
+    for _, item in ipairs(Scanner.GearWarnings(c, solo, byId)) do tiles[#tiles + 1] = item end
 
     return {
         tiles = tiles,

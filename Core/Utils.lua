@@ -55,6 +55,15 @@ end
 -- Spells and auras
 ---------------------------------------------------------------------------------------------------------------
 
+-- Off-hand item is a shield (Armor class 4, subclass 6). GetBlockChance() doesn't tell: it reports the full block
+-- chance with no shield worn [in-game 2026-11-12].
+function Utils.HasShield()
+    local ok, link = pcall(GetInventoryItemLink, "player", 17)
+    if not ok or type(link) ~= "string" then return false end
+    local okInfo, _, _, _, _, _, classID, subClassID = pcall(C_Item.GetItemInfoInstant, link)
+    return okInfo and classID == 4 and subClassID == 6
+end
+
 -- Forever: the global IsPlayerSpell is only a deprecation shim (kb/gotchas.md#deprecation-fallbacks).
 function Utils.IsKnown(spellID)
     return spellID ~= nil and C_SpellBook.IsSpellKnown(spellID) == true

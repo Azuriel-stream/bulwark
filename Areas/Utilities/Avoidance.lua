@@ -53,14 +53,6 @@ local function Num(fn, ...)
     return Utils.SafeNumber(a), Utils.SafeNumber(b)
 end
 
--- Off-hand item is a shield (Armor class 4, subclass 6).
-local function HasShield()
-    local ok, link = pcall(GetInventoryItemLink, "player", 17)
-    if not ok or type(link) ~= "string" then return false end
-    local okInfo, _, _, _, _, _, classID, subClassID = pcall(C_Item.GetItemInfoInstant, link)
-    return okInfo and classID == 4 and subClassID == 6
-end
-
 local function HasAura(ids)
     if not (C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID) then return false end
     for _, id in ipairs(ids) do
@@ -80,7 +72,7 @@ function Avoidance.Read()
         dodge = Num(GetDodgeChance),
         parry = Num(GetParryChance),
         block = Num(GetBlockChance),
-        hasShield = HasShield(),
+        hasShield = Utils.HasShield(),
         known = {}, active = {},
     }
     if not (snap.level and snap.level > 0 and snap.defense and snap.dodge and snap.parry and snap.block) then return nil end

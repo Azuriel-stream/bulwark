@@ -14,6 +14,9 @@ function H.Party(sim)
     sim.units.party2 = { name = "Aldric", surname = "Dawnward", class = "PALADIN", guid = "Player-1-00000003",
                          friendly = true, level = 60, auras = {} }
     sim.group = "party"
+    -- a tank's shield (else the gear check shows "No shield" in Defensive Stance)
+    sim.equipped[17] = "|cffffffff|Hitem:4975::::::::|h[Vigilant Buckler]|h|r"
+    sim.itemInfo[4975] = { classID = 4, subClassID = 6, equipLoc = "INVTYPE_SHIELD" }
 end
 
 function H.Aura(spellId, name, opts)

@@ -242,6 +242,26 @@ return function(sim, t)
     t.eq(vp.rows.defense.need:GetText(), "6.3", "6.25 defense for +1 %")
     t.eq(vp.rows.block.need:GetText(), "5.0", "5 block rating for +1 %")
 
+    -- Mob tooltip (option, off by default): only for mobs that can crush you.
+    local Mob = NS.MobTooltip
+    t.eq(Mob.Line(snap(), 60), nil, "same level: nothing")
+    t.eq(Mob.Line(snap(), 62), nil, "+2 with capped defense: nothing")
+    t.eq(Mob.Line(snap(), 63), "Can crush you: 15.00% crushing blows, 1.60% crits", "boss: crush and crit")
+    t.eq(Mob.Line(snap(), -1), Mob.Line(snap(), 63), "skull at 60 = level 63")
+    t.ok(Mob.Line(snap({ defense = 295 }), 62), "unleveled defense: a +2 mob can crush")
+    t.eq(Mob.Line(snap({ dodge = 80 }), 63), nil, "pushed off the table: nothing")
+    sim.units.target.level = 63
+    t.eq(NS.db.utilities.mobTooltip, false, "mob tooltip off by default")
+    t.eq(#sim:ShowUnitTooltip("target"), 0, "off: no line")
+    opt.mobTooltip:Click()
+    t.eq(NS.db.utilities.mobTooltip, true, "turned on from Options")
+    local ml = sim:ShowUnitTooltip("target")
+    t.eq(ml[1] and ml[1].text, "Can crush you: 15.00% crushing blows, 1.60% crits", "boss tooltip line")
+    t.eq(#sim:ShowUnitTooltip("party1"), 0, "friendly player: no line")
+    sim.units.target.level = 60
+    t.eq(#sim:ShowUnitTooltip("target"), 0, "same-level mob: no line")
+    sim.units.target.level = 60
+
     -- Command prints the same table.
     local before = #sim.output
     sim:Slash("/bwk utilities avoid")

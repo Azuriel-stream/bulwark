@@ -168,6 +168,9 @@ D.ICONS = {
     ELIXIR = "Interface\\Icons\\INV_Potion_32",
     FLASK = "Interface\\Icons\\INV_Potion_62",
     HEALTHSTONE = "Interface\\Icons\\INV_Stone_04",
+    DEFENSE_SKILL = "Interface\\Icons\\Ability_Defend",
+    NO_SHIELD = "Interface\\Icons\\INV_Shield_06",
+    DURABILITY = "Interface\\Icons\\Trade_BlackSmithing",
     UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark",
 }
 
