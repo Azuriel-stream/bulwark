@@ -60,6 +60,8 @@ Areas\Marking\Keys.lua
 Areas\Marking\Area.lua
 # Utilities: tank helpers (Avoidance)
 Areas\Utilities\Avoidance.lua
+Areas\Utilities\Data\Enchants.lua
+Areas\Utilities\Enchants.lua
 Areas\Utilities\ItemTooltip.lua
 Areas\Utilities\MobTooltip.lua
 Areas\Utilities\Area.lua

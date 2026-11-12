@@ -1,0 +1,85 @@
+-- Gear audit, step 1: generated enchant data (tools/gen-enchants.ps1) + ranking by avoidance gain.
+-- Values [data]: wago.tools wowf 1.60.1.70888 (kb/addons/Bulwark-Utilities.md "Idea: Gear audit").
+return function(sim, t)
+    local NS = sim.env.Bulwark
+    local E, data = NS.Enchants, NS.EnchantData
+    local function near(a, b, msg)
+        t.ok(type(a) == "number" and math.abs(a - b) < 0.001, (msg or "number") .. ": expected " .. b .. ", got " .. tostring(a))
+    end
+    -- Level 60 warrior with a shield (same as utilities_test.lua); 12 dodge from 240 agility = 0.05 % per point.
+    local function snap(over)
+        local s = { level = 60, defense = 400, dodge = 12, parry = 11, block = 14, hasShield = true,
+                    known = {}, active = {}, dodgePerAgi = 0.05 }
+        for k, v in pairs(over or {}) do s[k] = v end
+        return s
+    end
+    local WRIST, BACK, OFFHAND, MAINHAND, HEAD = 9, 15, 17, 16, 1
+    local armor = { classID = 4, subClassID = 4, equipLoc = "INVTYPE_WRIST", ilvl = 60 }
+    local shield = { classID = 4, subClassID = 6, equipLoc = "INVTYPE_SHIELD", ilvl = 60 }
+    local oneHand = { classID = 2, subClassID = 7, equipLoc = "INVTYPE_WEAPON", ilvl = 60 }
+    local twoHand = { classID = 2, subClassID = 8, equipLoc = "INVTYPE_2HWEAPON", ilvl = 60 }
+
+    -- Data sanity
+    t.ok(data and data.stats and data.sources and #data.sources > 100, "generated data loaded")
+    t.eq(data.stats[923].def, 7, "Bracer - Deflection = Defense +7")
+    t.eq(data.stats[8214].def, 9, "Bracer - Superior Deflection (Forever) = Defense +9")
+    t.eq(data.stats[2622].dodge, 1, "Cloak - Dodge = 1 %")
+    t.eq(data.stats[2583].def, 7, "Presence of Might: Defense +7")
+    local origins, sod = {}, false
+    for _, src in ipairs(data.sources) do
+        origins[src.origin] = true
+        if src.spell == 1219587 then sod = true end         -- SoD Cloak - Agility: left out
+        t.ok(src.reagents or src.item, "source " .. src.spell .. " has mats or an item")
+    end
+    t.ok(origins.vanilla and origins.forever and not origins.sod and not sod, "origins: vanilla + forever, no SoD")
+
+    -- Link parsing
+    t.eq(E.FromLink("|cffffffff|Hitem:12345:923:::::::60|h[x]|h|r"), 923, "enchant from link")
+    t.eq(E.FromLink("|cffffffff|Hitem:12345::::::::60|h[x]|h|r"), nil, "no enchant")
+    t.eq(E.FromLink(nil), nil, "no link")
+
+    -- Gain: 7 defense = 0.04 % x 7 on each of miss, dodge, parry, block = 1.12 %
+    local s = snap()
+    local gain, sta = E.Gain(s, 923, nil, { offset = 3 })
+    near(gain, 1.12, "Deflection on a bare bracer"); t.eq(sta, 0, "no stamina")
+    gain = E.Gain(s, 8214, 923, { offset = 3 })
+    near(gain, 0.32, "Superior Deflection over Deflection: 2 more defense")
+    gain, sta = E.Gain(s, 929, 923, { offset = 3 })
+    near(gain, -1.12, "Greater Stamina over Deflection loses the defense"); t.eq(sta, 7, "but gains 7 stamina")
+    near(E.Gain(s, 2622, nil, { offset = 3 }), 1, "Cloak - Dodge: 1 %")
+    near(E.Gain(s, 863, nil, { offset = 3 }), 2, "Shield - Lesser Block: 2 % with a shield")
+    near(E.Gain(snap({ hasShield = false }), 863, nil, { offset = 3 }), 0, "no shield: block counts for nothing")
+
+    -- Ranking: wrist, best first; stamina breaks ties among zero-avoidance enchants
+    local list = E.ForSlot(s, WRIST, armor, nil, { offset = 3 })
+    t.eq(list[1].enchant, 8214, "wrist: Superior Deflection first")
+    t.eq(list[2].enchant, 923, "then Deflection")
+    local firstZero
+    for i, e in ipairs(list) do
+        if e.gain <= 0.005 then firstZero = firstZero or i end
+    end
+    t.ok(firstZero and list[firstZero].stamina >= 9, "first zero-avoidance wrist enchant is the best stamina one")
+
+    -- Verdicts
+    t.eq((E.Verdict(s, WRIST, armor, nil, { offset = 3 })), "missing", "bare bracer: missing")
+    t.eq((E.Verdict(s, WRIST, armor, 929, { offset = 3 })), "weaker", "Greater Stamina bracer: weaker")
+    t.eq((E.Verdict(s, WRIST, armor, 8214, { offset = 3 })), nil, "Superior Deflection: fine")
+
+    -- Item requirements
+    local function has(l, id)
+        for _, e in ipairs(l) do if e.enchant == id then return true end end
+        return false
+    end
+    t.ok(has(E.ForSlot(s, OFFHAND, shield, nil), 863), "shield enchants fit a shield")
+    t.eq(#E.ForSlot(s, OFFHAND, { classID = 4, subClassID = 0, equipLoc = "INVTYPE_HOLDABLE", ilvl = 60 }, nil), 0,
+        "no tank enchants for a held-in-off-hand item")
+    t.ok(has(E.ForSlot(s, MAINHAND, twoHand, nil), 2646), "2H Agility fits a two-hander")
+    t.ok(not has(E.ForSlot(s, MAINHAND, oneHand, nil), 2646), "2H Agility does not fit a one-hander")
+    t.ok(has(E.ForSlot(s, MAINHAND, oneHand, nil), 2564), "Weapon - Agility fits a one-hander")
+    t.ok(has(E.ForSlot(s, HEAD, { classID = 4, subClassID = 4, equipLoc = "INVTYPE_HEAD", ilvl = 60 }, nil), 2583),
+        "Presence of Might at level 60")
+    t.ok(not has(E.ForSlot(snap({ level = 50 }), HEAD, { classID = 4, subClassID = 4, equipLoc = "INVTYPE_HEAD", ilvl = 60 }, nil), 2583),
+        "Presence of Might needs level 60")
+    t.ok(not has(E.ForSlot(s, BACK, { classID = 4, subClassID = 1, equipLoc = "INVTYPE_CLOAK", ilvl = 60 }, nil), 2564),
+        "weapon enchants don't fit a cloak")
+end
