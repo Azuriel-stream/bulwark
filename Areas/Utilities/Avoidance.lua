@@ -76,12 +76,33 @@ function Avoidance.Read()
         snap.known[buff.key] = NS.playerClass == buff.class and Utils.KnowsAny(buff.ids)
         snap.active[buff.key] = snap.known[buff.key] and HasAura(buff.ids) or false
     end
+    -- Agility -> dodge for this character (level and class dependent): dodge from Agility / Agility.
+    -- [in-game] level 38 Warrior: 67 Agility, GetDodgeChanceFromAttribute() = 0.0532 (a fraction) -> 0.079 % each.
+    local _, agility = Num(UnitStat, "player", 2)
+    local fromAgi = Num(GetDodgeChanceFromAttribute)
+    snap.agility = agility
+    snap.dodgePerAgi = (agility and agility > 0 and fromAgi) and (fromAgi * 100 / agility) or 0
     return snap
 end
 
 ---------------------------------------------------------------------------------------------------------------
 -- Math
 ---------------------------------------------------------------------------------------------------------------
+
+-- What-if: a copy of snap with stat changes applied. delta = { defense=, agility=, dodge=, parry=, block= } (% for
+-- the last three). Defense raises miss (in Compute) and dodge/parry/block by 0.04 % per point [in-game]; parry only
+-- for characters that can parry.
+function Avoidance.Apply(snap, delta)
+    local s = {}
+    for k, v in pairs(snap) do s[k] = v end
+    delta = delta or {}
+    local def = delta.defense or 0
+    s.defense = snap.defense + def
+    s.dodge = math.max(0, snap.dodge + def * DEFENSE_STEP + (delta.agility or 0) * (snap.dodgePerAgi or 0) + (delta.dodge or 0))
+    if snap.parry > 0 then s.parry = math.max(0, snap.parry + def * DEFENSE_STEP + (delta.parry or 0)) end
+    s.block = math.max(0, snap.block + def * DEFENSE_STEP + (delta.block or 0))
+    return s
+end
 
 -- snap: Read() result. opts: offset = mob level above the player (0..3), count = { [buffKey] = true }.
 function Avoidance.Compute(snap, opts)

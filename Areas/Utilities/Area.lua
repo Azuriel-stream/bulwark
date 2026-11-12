@@ -49,6 +49,33 @@ end
 
 local function BuffName(buff) return L["BUFF_" .. buff.key] end
 
+-- The two verdict lines (page.verdictCrush / page.verdictCrit) for a Compute result r of snapshot snap.
+local function ShowVerdicts(page, r, snap)
+    if not r.canCrush then
+        page.verdictCrush:SetText(string.format(L["VERDICT_NO_CRUSH"], r.mobLevel))
+        Kit.SetTextColor(page.verdictCrush, C.muted)
+    elseif r.uncrushable then
+        local text = L["VERDICT_UNCRUSHABLE"]
+        if #r.counted > 0 and not Avoidance.Compute(snap, { offset = cfg().mobOffset }).uncrushable then
+            local b = r.counted[1]
+            text = text .. "  " .. string.format(L["VERDICT_ONLY_WHILE"], BuffName(b), b.duration, b.charges)
+        end
+        page.verdictCrush:SetText(text)
+        Kit.SetTextColor(page.verdictCrush, GOOD)
+    else
+        page.verdictCrush:SetText(string.format(L["VERDICT_CRUSHABLE"], Pct(r.short)))
+        Kit.SetTextColor(page.verdictCrush, C.warn)
+    end
+    if r.critImmune then
+        page.verdictCrit:SetText(string.format(L["VERDICT_CRIT_IMMUNE"], r.mobLevel))
+        Kit.SetTextColor(page.verdictCrit, GOOD)
+    else
+        page.verdictCrit:SetText(string.format(L["VERDICT_CRITABLE"], Pct(r.raw.crit), r.defenseNeeded,
+            snap.defense + r.defenseNeeded))
+        Kit.SetTextColor(page.verdictCrit, C.warn)
+    end
+end
+
 -- Legend row: colour square, label, value right-aligned.
 local function Row(parent, x, y, key, label)
     local sq = parent:CreateTexture(nil, "ARTWORK")
@@ -198,34 +225,128 @@ NS:AddPage(area.key, {
         page.rows.hit.value:SetText(Pct(r.table.hit))
         page.rows.total.value:SetText(Pct(r.total))
 
-        -- crushing blows
-        if not r.canCrush then
-            page.verdictCrush:SetText(string.format(L["VERDICT_NO_CRUSH"], r.mobLevel))
+        ShowVerdicts(page, r, snap)
+    end,
+})
+
+---------------------------------------------------------------------------------------------------------------
+-- What if: stat changes on top of the current snapshot
+---------------------------------------------------------------------------------------------------------------
+
+local WHATIF = {
+    { key = "defense", min = -50, max = 150, step = 1, fmt = "%+.0f" },
+    { key = "agility", min = -50, max = 200, step = 1, fmt = "%+.0f" },
+    { key = "dodge", min = -5, max = 10, step = 0.5, fmt = "%+.1f%%" },
+    { key = "parry", min = -5, max = 10, step = 0.5, fmt = "%+.1f%%" },
+    { key = "block", min = -5, max = 10, step = 0.5, fmt = "%+.1f%%" },
+}
+local MORE_IS_BETTER = { miss = true, dodge = true, parry = true, block = true, total = true }
+
+-- Compare row: colour square, label, "now -> what-if", change.
+local function CompareRow(parent, x, y, key)
+    local row = Row(parent, x, y, key, L[key == "total" and "AV_TOTAL" or ("AV_" .. key)])   -- total: no colour
+    if key == "total" then
+        -- no colour square: the label starts at the left edge ([in-game] it touched "100.96 > 126.35%")
+        row.name:ClearAllPoints()
+        row.name:SetPoint("TOPLEFT", x, y)
+    end
+    row.value:ClearAllPoints()
+    row.value:SetPoint("TOPRIGHT", parent, "TOPLEFT", x + 240, y)
+    row.change = Kit.Text(parent, 12)
+    row.change:SetPoint("TOPRIGHT", parent, "TOPLEFT", x + 298, y)
+    row.change:SetJustifyH("RIGHT")
+    return row
+end
+
+NS:AddPage(area.key, {
+    key = "whatif",
+    title = L["PAGE_WHATIF"],
+    build = function(page, parent)
+        local y = Kit.PageHeader(parent, L["PAGE_WHATIF"], L["WHATIF_DESC"])
+        page.delta = {}
+        local adjust = Card(parent, L["CARD_ADJUST"], y, 200)
+        page.sliders = {}
+        for i, def in ipairs(WHATIF) do
+            page.delta[def.key] = 0
+            local slider = Kit.Slider(adjust, L["WI_" .. def.key], def.min, def.max, def.step,
+                function(v) return string.format(def.fmt, v) end,
+                function(v)
+                    page.delta[def.key] = v
+                    if page.ready then page:refresh() end
+                end)
+            local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+            slider:SetPoint("TOPLEFT", 12 + col * 318, -62 - row * 54)
+            page.sliders[def.key] = slider
+        end
+        page.reset = Kit.Button(adjust, L["BTN_RESET"], 120, function()
+            for _, def in ipairs(WHATIF) do page.sliders[def.key]:SetValue(0) end
+            page:refresh()
+        end)
+        page.reset:SetPoint("TOPLEFT", 349, -160)
+
+        local result = Card(parent, "", y - 210, 186)
+        page.resultTitle = result.title
+        page.frozen = Kit.Text(result, 11, C.warn)
+        page.frozen:SetPoint("TOPRIGHT", -14, -14)
+        page.rows = {}
+        for i, key in ipairs({ "miss", "dodge", "parry", "block", "total" }) do
+            page.rows[key] = CompareRow(result, 16, -42 - (i - 1) * 19, key)
+        end
+        Kit.SetTextColor(page.rows.total.name, C.goldText)
+        for i, key in ipairs({ "crit", "crush", "hit" }) do
+            page.rows[key] = CompareRow(result, 330, -42 - (i - 1) * 19, key)
+        end
+        page.verdictCrush = Kit.Text(result, 12)
+        page.verdictCrush:SetPoint("TOPLEFT", 16, -142)
+        page.verdictCrush:SetWidth(620)
+        page.verdictCrit = Kit.Text(result, 12)
+        page.verdictCrit:SetPoint("TOPLEFT", 16, -161)
+        page.verdictCrit:SetWidth(620)
+
+        for _, def in ipairs(WHATIF) do page.sliders[def.key]:SetValue(0) end
+        page.ready = true
+        NS:On("AVOIDANCE_CHANGED", function()
+            if page.frame and page.frame:IsShown() then page:refresh() end
+        end)
+    end,
+    refresh = function(page)
+        local snap, frozen = Avoidance:Get()
+        page.frozen:SetText(frozen and snap and L["AV_FROZEN"] or "")
+        if not snap then
+            page.resultTitle:SetText(L["CARD_WHATIF_RESULT_NONE"])
+            for _, row in pairs(page.rows) do row.value:SetText("-"); row.change:SetText("") end
+            page.verdictCrush:SetText(L["AV_NO_DATA"])
             Kit.SetTextColor(page.verdictCrush, C.muted)
-        elseif r.uncrushable then
-            local text = L["VERDICT_UNCRUSHABLE"]
-            if #r.counted > 0 then
-                local without = Avoidance.Compute(snap, { offset = cfg().mobOffset })
-                if not without.uncrushable then
-                    local b = r.counted[1]
-                    text = text .. "  " .. string.format(L["VERDICT_ONLY_WHILE"], BuffName(b), b.duration, b.charges)
+            page.verdictCrit:SetText("")
+            return
+        end
+        local opts = { offset = cfg().mobOffset, count = cfg().count }
+        local changed = Avoidance.Apply(snap, page.delta)
+        local now, wi = Avoidance.Compute(snap, opts), Avoidance.Compute(changed, opts)
+        page.resultTitle:SetText(string.format(L["CARD_WHATIF_RESULT"], wi.mobLevel))
+        for key, row in pairs(page.rows) do
+            local a = key == "total" and now.total or now.table[key]
+            local b = key == "total" and wi.total or wi.table[key]
+            if key == "block" and not snap.hasShield then
+                row.value:SetText(L["AV_NO_SHIELD"])
+                row.change:SetText("")
+            else
+                row.value:SetText(string.format("%.2f  >  %.2f%%", a, b))
+                local d = b - a
+                if math.abs(d) < 0.005 then
+                    row.change:SetText("")
+                else
+                    row.change:SetText(string.format("%+.2f", d))
+                    local good = (d > 0) == (MORE_IS_BETTER[key] == true)
+                    -- Past 100 % the roll runs out: block (then crit, crush) shrinks because the outcomes above it
+                    -- grew, not because it got worse. Grey when the uncapped value moved the other way.
+                    local rawD = now.raw[key] and (wi.raw[key] - now.raw[key])
+                    local capped = rawD and (math.abs(rawD) < 0.005 or (rawD > 0) ~= (d > 0))
+                    Kit.SetTextColor(row.change, capped and C.muted or (good and GOOD or C.warn))
                 end
             end
-            page.verdictCrush:SetText(text)
-            Kit.SetTextColor(page.verdictCrush, GOOD)
-        else
-            page.verdictCrush:SetText(string.format(L["VERDICT_CRUSHABLE"], Pct(r.short)))
-            Kit.SetTextColor(page.verdictCrush, C.warn)
         end
-        -- crits
-        if r.critImmune then
-            page.verdictCrit:SetText(string.format(L["VERDICT_CRIT_IMMUNE"], r.mobLevel))
-            Kit.SetTextColor(page.verdictCrit, GOOD)
-        else
-            page.verdictCrit:SetText(string.format(L["VERDICT_CRITABLE"], Pct(r.raw.crit), r.defenseNeeded,
-                snap.defense + r.defenseNeeded))
-            Kit.SetTextColor(page.verdictCrit, C.warn)
-        end
+        ShowVerdicts(page, wi, changed)
     end,
 })
 

@@ -367,6 +367,17 @@ L["OPT_COUNT_BUFF_DESC"] = "Adds the cooldown to the table as if it were up, so 
 L["CD_NOT_LEARNED"] = "%s isn't learned yet."
 L["CD_NO_SHIELD"] = "Equip a shield to count your block cooldown."
 L["CD_NONE_FOR_CLASS"] = "Your class has no block cooldown to count."
+L["PAGE_WHATIF"] = "What if"
+L["WHATIF_DESC"] = "Try stat changes on top of your current values. Attacker level and the block cooldown tick come from the Avoidance page."
+L["CARD_ADJUST"] = "Change"
+L["WI_defense"] = "Defense"
+L["WI_agility"] = "Agility"
+L["WI_dodge"] = "Dodge %"
+L["WI_parry"] = "Parry %"
+L["WI_block"] = "Block %"
+L["BTN_RESET"] = "Reset"
+L["CARD_WHATIF_RESULT"] = "Now  >  with the changes, vs level %d"
+L["CARD_WHATIF_RESULT_NONE"] = "Now  >  with the changes"
 L["HELP_UTIL_AVOID"] = "prints the attack table (same as the Avoidance page)"
 
 -- Errors
