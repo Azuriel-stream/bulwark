@@ -89,6 +89,27 @@ end
 -- Math
 ---------------------------------------------------------------------------------------------------------------
 
+-- Item stats (C_Item.GetItemStats keys) that change avoidance. % stats come as ratings [in-game 2026-11-12, level 38]:
+-- "+1 % parry" = 15 parry rating, 1 % dodge = 12, 1 % block = 5; defense rating = defense skill 1:1.
+Avoidance.ITEM_STATS = {
+    ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = { "defense", 1 },
+    ITEM_MOD_AGILITY_SHORT = { "agility", 1 },
+    ITEM_MOD_DODGE_RATING_SHORT = { "dodge", 12 },
+    ITEM_MOD_PARRY_RATING_SHORT = { "parry", 15 },
+    ITEM_MOD_BLOCK_RATING_SHORT = { "block", 5 },
+}
+
+-- Adds (sign = 1) or removes (sign = -1) an item's stats to a what-if delta.
+function Avoidance.AddItemStats(delta, stats, sign)
+    for key, value in pairs(stats or {}) do
+        local m = Avoidance.ITEM_STATS[key]
+        if m and type(value) == "number" then
+            delta[m[1]] = (delta[m[1]] or 0) + sign * value / m[2]
+        end
+    end
+    return delta
+end
+
 -- What-if: a copy of snap with stat changes applied. delta = { defense=, agility=, dodge=, parry=, block= } (% for
 -- the last three). Defense raises miss (in Compute) and dodge/parry/block by 0.04 % per point [in-game]; parry only
 -- for characters that can parry.

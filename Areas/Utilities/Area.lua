@@ -14,6 +14,7 @@ local area = NS:RegisterArea({
 NS.DefaultConfig.utilities = {
     mobOffset = 3,                                      -- attacker level above the player: 3 = raid boss
     count = { shieldBlock = false, holyShield = false }, -- block cooldowns counted in the table
+    tooltip = false,                                    -- item tooltip note (user: off by default)
 }
 
 local function cfg() return NS.db.utilities end
@@ -347,6 +348,28 @@ NS:AddPage(area.key, {
             end
         end
         ShowVerdicts(page, wi, changed)
+    end,
+})
+
+---------------------------------------------------------------------------------------------------------------
+-- Options: switches for the helpers that show up outside the window
+---------------------------------------------------------------------------------------------------------------
+
+NS:AddPage(area.key, {
+    key = "options",
+    title = L["PAGE_UTIL_OPTIONS"],
+    build = function(page, parent)
+        local y = Kit.PageHeader(parent, L["PAGE_UTIL_OPTIONS"], L["UTIL_OPTIONS_DESC"])
+        local card = Card(parent, L["CARD_ITEM_TOOLTIPS"], y, 132)
+        page.tooltip = Kit.Checkbox(card, L["OPT_ITEM_TOOLTIP"], nil, function(checked)
+            cfg().tooltip = checked
+        end)
+        page.tooltip:SetPoint("TOPLEFT", 12, -38)
+        local note = Kit.Paragraph(card, L["OPT_ITEM_TOOLTIP_DESC"], 600, 11, C.muted)
+        note:SetPoint("TOPLEFT", 44, -66)
+    end,
+    refresh = function(page)
+        page.tooltip:SetChecked(cfg().tooltip and true or false)
     end,
 })
 

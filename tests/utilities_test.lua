@@ -150,6 +150,60 @@ return function(sim, t)
     wi.reset:Click()
     NS.db.utilities.count.shieldBlock = false
 
+    -- Item tooltip note: off by default; on via Utilities > Options.
+    local function link(id, name) return "|cffffffff|Hitem:" .. id .. "::::::::|h[" .. name .. "]|h|r" end
+    local function item(id, name, loc, stats, classID, subClassID)
+        sim.itemInfo[id] = { equipLoc = loc, classID = classID or 4, subClassID = subClassID or 4 }
+        sim.itemStats[id] = stats
+        return link(id, name)
+    end
+    sim.itemStats[4975] = { ITEM_MOD_BLOCK_RATING_SHORT = 5, ITEM_MOD_STAMINA_SHORT = 7 }   -- the worn shield: 1 % block
+    sim.equipped[7] = item(10001, "Dual Reinforced Leggings", "INVTYPE_LEGS", { ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = 5 })
+    sim.equipped[11] = item(10002, "Nogg's Gold Ring", "INVTYPE_FINGER", { ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = 3 })
+    sim.equipped[12] = item(10003, "Plain Ring", "INVTYPE_FINGER", { ITEM_MOD_STAMINA_SHORT = 5 })
+    sim.equipped[16] = item(10004, "Sword", "INVTYPE_WEAPON", { ITEM_MOD_STRENGTH_SHORT = 5 }, 2, 7)
+    local legs = item(10010, "Better Legs", "INVTYPE_LEGS", { ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = 10, ITEM_MOD_DODGE_RATING_SHORT = 12 })
+    t.eq(NS.db.utilities.tooltip, false, "tooltip note off by default")
+    t.eq(#sim:ShowItemTooltip(legs), 0, "no line while the option is off")
+    NS.Window:Select("utilities", "options")
+    local opt = NS:GetArea("utilities").pages[3]
+    t.ok(opt.frame and opt.frame:IsShown(), "Options page built and shown")
+    t.eq(opt.tooltip:GetChecked() and true or false, false, "checkbox shows off")
+    opt.tooltip:Click()
+    t.eq(NS.db.utilities.tooltip, true, "option turned on")
+    local lines = sim:ShowItemTooltip(legs)
+    t.eq(#lines, 1, "one line")
+    t.eq(lines[1] and lines[1].text, "Total avoidance +1.80%", "+5 defense (4 x 0.2) and +1 % dodge")
+    t.ok(lines[1] and lines[1].g > lines[1].r, "gain in green")
+    t.eq(#sim:ShowItemTooltip(sim.equipped[7]), 0, "the worn item itself: no line")
+    t.eq(#sim:ShowItemTooltip(item(10011, "Shirt", "INVTYPE_BODY", {})), 0, "shirt slot: no line")
+    t.eq(#sim:ShowItemTooltip(item(10012, "Potion", "", {}, 0, 1)), 0, "not gear: no line")
+    t.eq(#sim:ShowItemTooltip(item(10013, "Stamina Legs", "INVTYPE_LEGS", { ITEM_MOD_STAMINA_SHORT = 20 })), 1,
+        "losing the worn legs' 5 defense shows")
+    -- Rings: compared with the ring it replaces best (the one without defense).
+    lines = sim:ShowItemTooltip(item(10014, "Guard Ring", "INVTYPE_FINGER", { ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = 2 }))
+    t.eq(lines[1] and lines[1].text, "Total avoidance +0.32%", "ring vs the weaker ring")
+    -- A two-hander takes the shield off: all block is lost.
+    lines = sim:ShowItemTooltip(item(10015, "Greatsword", "INVTYPE_2HWEAPON", { ITEM_MOD_STRENGTH_SHORT = 20 }, 2, 8))
+    t.eq(lines[1] and lines[1].text, "Total avoidance -13.40%", "two-hander: the whole 13.4 % block is lost, not just the shield's 1 %")
+    t.ok(lines[1] and lines[1].r > lines[1].g, "loss in red")
+    -- Crossing 440 defense says so.
+    lines = sim:ShowItemTooltip(item(10016, "Wall Legs", "INVTYPE_LEGS", { ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = 45 }))
+    t.ok(lines[1] and lines[1].text:find("(crit immune)", 1, true), "crit immunity reached: " .. tostring(lines[1] and lines[1].text))
+    -- Not for other classes, not in combat.
+    NS.playerClass = "MAGE"
+    t.eq(#sim:ShowItemTooltip(legs), 0, "other classes: no line")
+    NS.playerClass = "WARRIOR"
+    sim:EnterCombat()
+    t.eq(#sim:ShowItemTooltip(legs), 0, "in combat: no line")
+    sim:LeaveCombat()
+    sim:Advance(0.5)
+    -- Area off: no line.
+    NS:SetAreaEnabled("utilities", false)
+    t.eq(#sim:ShowItemTooltip(legs), 0, "area off: no line")
+    NS:SetAreaEnabled("utilities", true)
+    t.eq(#sim:ShowItemTooltip(legs), 1, "area back on: line again (hook installed once)")
+
     -- Command prints the same table.
     local before = #sim.output
     sim:Slash("/bwk utilities avoid")
