@@ -111,4 +111,11 @@ return function(sim, t)
     t.eq(Gear.Config("Tank").intentional[15], nil, "right-click again unmarks it")
     page.slots[11]:Click("RightButton")
     t.eq(Gear.Config("Tank").intentional[11], nil, "nothing to mark on a ring")
+
+    -- Entry names: "Enchant Boots - Greater Agility" -> "Greater Agility"; items keep their own name
+    sim.env.C_Spell.GetSpellName = function(id) return id == 20023 and "Enchant Boots - Greater Agility" or nil end
+    t.eq(Gear.EntryName({ enchant = 1887, sources = { { spell = 20023 } } }), "Greater Agility", "enchant prefix dropped")
+    sim.env.C_Item.GetItemNameByID = function(id) return id == 18331 and "Arcanum of Protection" or nil end
+    t.eq(Gear.EntryName({ enchant = 2545, sources = { { spell = 22846, item = 18331 } } }), "Arcanum of Protection",
+        "item sources use the item name")
 end

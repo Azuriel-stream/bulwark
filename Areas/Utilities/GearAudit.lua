@@ -157,6 +157,10 @@ end
 function Gear.EntryName(entry)
     local src = entry.sources[1]
     local name = src.item and C_Item.GetItemNameByID and Call(C_Item.GetItemNameByID, src.item)
-    if not name and C_Spell and C_Spell.GetSpellName then name = Call(C_Spell.GetSpellName, src.spell) end
+    if not name and C_Spell and C_Spell.GetSpellName then
+        name = Call(C_Spell.GetSpellName, src.spell)
+        -- "Enchant Boots - Greater Agility" -> "Greater Agility": the slot is already known (enUS spell names)
+        if type(name) == "string" then name = name:gsub("^Enchant [^%-]+ %- ", "") end
+    end
     return name or ("#" .. tostring(entry.enchant))
 end

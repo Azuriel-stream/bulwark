@@ -82,4 +82,11 @@ return function(sim, t)
         "Presence of Might needs level 60")
     t.ok(not has(E.ForSlot(s, BACK, { classID = 4, subClassID = 1, equipLoc = "INVTYPE_CLOAK", ilvl = 60 }, nil), 2564),
         "weapon enchants don't fit a cloak")
+
+    -- Item level: Heavy Armor Kit (8484) is "only usable on items level 15 and above" [data] (ItemLevelMin = $ecim)
+    local function gloves(ilvl) return { classID = 4, subClassID = 3, equipLoc = "INVTYPE_HAND", ilvl = ilvl } end
+    t.ok(not has(E.ForSlot(s, 10, gloves(14), nil), 8484), "Heavy Armor Kit: not on an item level 14 item")
+    t.ok(has(E.ForSlot(s, 10, gloves(15), nil), 8484), "Heavy Armor Kit: item level 15 is enough")
+    t.ok(not has(E.ForSlot(s, 10, gloves(nil), nil), 8484), "item level unknown (not cached yet): kits left out")
+    t.ok(has(E.ForSlot(s, 10, gloves(5), nil), 1887), "enchanting recipes have no item level floor")
 end
