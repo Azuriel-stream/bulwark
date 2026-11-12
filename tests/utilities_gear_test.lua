@@ -118,4 +118,70 @@ return function(sim, t)
     sim.env.C_Item.GetItemNameByID = function(id) return id == 18331 and "Arcanum of Protection" or nil end
     t.eq(Gear.EntryName({ enchant = 2545, sources = { { spell = 22846, item = 18331 } } }), "Arcanum of Protection",
         "item sources use the item name")
+
+    -- Step 3: picker. Left-click the bracers: the summary gives way to the ranked list.
+    page.slots[9]:Click("LeftButton")
+    t.ok(page.picker:IsShown() and not page.summary:IsShown(), "picker replaces the summary")
+    t.ok(page.picker.title:GetText():find("Wrist", 1, true), "picker title: " .. tostring(page.picker.title:GetText()))
+    t.eq(page.rows[1].entry.enchant, 8214, "first row: Superior Deflection")
+    t.ok(page.more:GetText():find("of", 1, true), "more rows than fit: scroll note")
+    page.rows[1]:Click()
+    t.eq(Gear.GetPick("Tank", 9), 1248665, "ticked: on the enchant list")
+    t.ok(page.slots[9].pickMark:IsShown(), "gold corner on the slot")
+    t.ok(page.rows[1].picked and page.rows[1].tick:IsShown(), "row shows the tick")
+    page.rows[2]:Click()
+    t.eq(Gear.GetPick("Tank", 9), 13931, "another row replaces the slot's pick (one per slot)")
+    page.rows[2]:Click()
+    t.eq(Gear.GetPick("Tank", 9), nil, "clicking the ticked row removes it")
+    page.rows[1]:Click()
+    local wheel = page.picker:GetScript("OnMouseWheel")
+    wheel(page.picker, -1)
+    t.eq(page.rows[1].entry.enchant, 923, "scrolled one row down")
+    wheel(page.picker, 1)
+    -- Cloak: Cloak - Dodge (1 %) beats the agility enchants
+    page.slots[15]:Click("LeftButton")
+    t.eq(page.rows[1].entry.enchant, 2622, "cloak: Dodge first")
+    page.rows[1]:Click()
+    -- Shield: the current enchant is shown but can't be ticked
+    page.slots[17]:Click("LeftButton")
+    local cur
+    for _, row in ipairs(page.rows) do if row.entry and row.entry.current then cur = row end end
+    t.ok(cur and cur.name:GetText():find("(current)", 1, true), "current enchant marked")
+    cur:Click()
+    t.eq(Gear.GetPick("Tank", 17), nil, "current enchant can't be picked")
+    page.slots[17]:Click("LeftButton")
+    t.ok(not page.picker:IsShown() and page.summary:IsShown(), "clicking the open slot again closes the picker")
+    t.ok(page.listCount:GetText():find("2 to do", 1, true), "summary: " .. tostring(page.listCount:GetText()))
+
+    -- Shopping list: Superior Deflection (3 Large Brilliant Shard) + Cloak - Dodge (3 Nexus Crystal,
+    -- 8 Large Brilliant Shard, 8 Guardian Stone) = 11 shards
+    sim.items[14344] = 2
+    local picks, mats = Gear.ShoppingList()
+    t.eq(#picks, 2, "two picks")
+    local shards
+    for _, m in ipairs(mats) do if m.item == 14344 then shards = m end end
+    t.eq(shards and shards.need, 11, "Large Brilliant Shards summed")
+    NS.Window:Select("utilities", "enchantlist")
+    local list
+    for _, p in ipairs(NS:GetArea("utilities").pages) do if p.key == "enchantlist" then list = p end end
+    t.ok(list.frame:IsShown(), "Enchant list page shown")
+    t.ok(list.picks.rows[1]:IsShown() and list.picks.rows[2]:IsShown() and not list.picks.rows[3]:IsShown(), "two pick rows")
+    local shardRow
+    for _, row in ipairs(list.mats.rows) do if row.data and row.data.item == 14344 then shardRow = row end end
+    t.eq(shardRow and shardRow.right:GetText(), "2 / 11", "have / need")
+
+    -- Enchanting the bracers takes that pick off the mats
+    sim.equipped[9] = link(101, 8214)
+    picks, mats = Gear.ShoppingList()
+    for _, m in ipairs(mats) do if m.item == 14344 then shards = m end end
+    t.eq(shards.need, 8, "done pick no longer counted")
+    t.eq(Gear.OpenPicks(), 1, "one left to do")
+    list:refresh()
+    t.ok(list.picks.rows[2].right:GetText() == "done" or list.picks.rows[1].right:GetText() == "done", "done marker")
+    -- Remove a pick from the list page, then clear
+    list.picks.rows[1].remove:Click()
+    t.eq(#(Gear.ShoppingList()), 1, "removed one")
+    list.clear:Click()
+    t.eq(#(Gear.ShoppingList()), 0, "cleared")
+    t.ok(list.empty:IsShown(), "empty note")
 end

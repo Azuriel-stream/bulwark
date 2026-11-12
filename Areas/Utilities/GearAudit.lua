@@ -18,6 +18,7 @@ Gear.RIGHT = { 10, 6, 7, 8, 11, 12, 13, 14 }
 
 NS.DefaultCharConfig.gear = {
     sets = {},          -- [set name or Gear.WORN] = { purpose =, school =, intentional = { [slot] = true } }
+    picks = {},         -- ["<set key>:<slot>"] = { set =, slot =, spell = source spell } (the enchant list)
 }
 
 -- Equipment set item locations [docs] Blizzard_FrameXMLBase/Constants.lua (EquipmentManager_GetLocationData).
@@ -151,6 +152,113 @@ function Gear.Audit(set, snap, opts)
         if r.state and result.counts[r.state] then result.counts[r.state] = result.counts[r.state] + 1 end
     end
     return result
+end
+
+-- Resistance purpose: entries with the most resistance of the set's school first, then by avoidance.
+function Gear.SortFor(list, purpose, school)
+    if purpose ~= "resistance" then return list end
+    local function res(e) return Enchants.Stats(e.enchant)[school] or 0 end
+    table.sort(list, function(a, b)
+        if res(a) ~= res(b) then return res(a) > res(b) end
+        if math.abs(a.gain - b.gain) > 0.005 then return a.gain > b.gain end
+        return a.enchant < b.enchant
+    end)
+    return list
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Enchant list: picks (one enchant per slot per set) and the mats they need
+---------------------------------------------------------------------------------------------------------------
+
+local bySpell
+function Gear.SourceBySpell(spell)
+    if not bySpell then
+        bySpell = {}
+        for _, src in ipairs(NS.EnchantData and NS.EnchantData.sources or {}) do
+            bySpell[src.spell] = bySpell[src.spell] or src
+        end
+    end
+    return bySpell[spell]
+end
+
+local function PickKey(setKey, slot) return setKey .. ":" .. slot end
+
+function Gear.GetPick(setKey, slot)
+    local p = NS.char.gear.picks[PickKey(setKey, slot)]
+    return p and p.spell
+end
+
+-- spell = source spell to pick, nil to remove the pick for that slot.
+function Gear.SetPick(setKey, slot, spell)
+    NS.char.gear.picks[PickKey(setKey, slot)] = spell and { set = setKey, slot = slot, spell = spell } or nil
+    NS:Fire("GEAR_PICKS_CHANGED")
+end
+
+function Gear.ClearPicks()
+    wipe(NS.char.gear.picks)
+    NS:Fire("GEAR_PICKS_CHANGED")
+end
+
+-- Picks with their state, and the summed mats of the ones still to do.
+-- picks = { { key, set (key), slot, src, done } } (done = the item in that slot already has the enchant: not counted)
+-- mats = { { item, need } } sorted by item ID; item sources count the item itself once.
+function Gear.ShoppingList()
+    local setByKey = {}
+    for _, s in ipairs(Gear.Sets()) do setByKey[s.key] = s end
+    local itemsBySet = {}
+    local picks, need = {}, {}
+    for key, p in pairs(NS.char.gear.picks) do
+        local src = type(p) == "table" and Gear.SourceBySpell(p.spell)
+        if src then
+            local entry = { key = key, set = p.set, slot = p.slot, src = src }
+            local set = setByKey[p.set]
+            if set then
+                itemsBySet[p.set] = itemsBySet[p.set] or Gear.Items(set)
+                local item = itemsBySet[p.set][p.slot]
+                entry.done = item and item.link and Enchants.FromLink(item.link) == src.enchant or false
+            end
+            picks[#picks + 1] = entry
+            if not entry.done then
+                if src.item then
+                    need[src.item] = (need[src.item] or 0) + 1
+                else
+                    for i = 1, #(src.reagents or {}), 2 do
+                        local id, n = src.reagents[i], src.reagents[i + 1]
+                        need[id] = (need[id] or 0) + n
+                    end
+                end
+            end
+        end
+    end
+    table.sort(picks, function(a, b)
+        if a.set ~= b.set then return a.set < b.set end
+        return a.slot < b.slot
+    end)
+    local mats = {}
+    for id, n in pairs(need) do mats[#mats + 1] = { item = id, need = n } end
+    table.sort(mats, function(a, b) return a.item < b.item end)
+    return picks, mats
+end
+
+-- Picks still to do (the slot doesn't have the enchant yet).
+function Gear.OpenPicks()
+    local n = 0
+    for _, p in ipairs((Gear.ShoppingList())) do
+        if not p.done then n = n + 1 end
+    end
+    return n
+end
+
+-- How many of an item the player has (bags + bank).
+function Gear.Have(itemID)
+    return Call(C_Item.GetItemCount, itemID, true) or 0
+end
+
+-- Item name, or nil while the client hasn't loaded it (asks for it: GET_ITEM_INFO_RECEIVED follows).
+function Gear.ItemName(itemID)
+    local name = C_Item.GetItemNameByID and Call(C_Item.GetItemNameByID, itemID)
+    if not name and C_Item.RequestLoadItemDataByID then Call(C_Item.RequestLoadItemDataByID, itemID) end
+    return name
 end
 
 -- Display name of a ranked entry: the item that applies it, else the enchanting spell.
