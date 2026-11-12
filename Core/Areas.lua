@@ -30,8 +30,15 @@ function NS:RegisterArea(spec)
     return spec
 end
 
+-- page.before = key of an existing page to insert in front of (e.g. keep "options" last); default: append.
 function NS:AddPage(areaKey, page)
     local area = NS.areaByKey[areaKey]
+    for i, p in ipairs(area.pages) do
+        if page.before and p.key == page.before then
+            table.insert(area.pages, i, page)
+            return page
+        end
+    end
     table.insert(area.pages, page)
     return page
 end

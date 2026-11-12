@@ -62,9 +62,11 @@ Areas\Marking\Area.lua
 Areas\Utilities\Avoidance.lua
 Areas\Utilities\Data\Enchants.lua
 Areas\Utilities\Enchants.lua
+Areas\Utilities\GearAudit.lua
 Areas\Utilities\ItemTooltip.lua
 Areas\Utilities\MobTooltip.lua
 Areas\Utilities\Area.lua
+Areas\Utilities\GearPage.lua
 
 # Settings tab, minimap button, slash commands
 UI\Settings.lua
