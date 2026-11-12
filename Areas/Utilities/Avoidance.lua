@@ -15,6 +15,18 @@ Avoidance.BUFFS = {
     { key = "holyShield", class = "PALADIN", ids = { 20925, 20927, 20928, 1239570 }, block = 30, duration = 10, charges = 4 },
 }
 
+-- Buffs and consumables that raise avoidance (all through Agility), for the planned-buffs projection. Values [data]
+-- (tools/gamedata.ps1, build 70888), highest rank; ids = every rank, to see whether one is already up.
+-- agility = flat Agility; pct = % of all stats (Kings: applies to Agility incl. the other buffs).
+Avoidance.PLANNED = {
+    { key = "kings", ids = { 20217, 25898, 1213408 }, pct = 10 },
+    { key = "wild", ids = { 1126, 5232, 6756, 5234, 8907, 9884, 9885, 16878, 24752, 364163, 1291335, 1310503, 21849, 21850 },
+      agility = 16 },
+    { key = "mongoose", ids = { 17538 }, agility = 25 },
+    { key = "greaterAgility", ids = { 11334 }, agility = 25 },
+    { key = "graceOfAir", ids = { 8836, 10626, 25360 }, agility = 77 },
+}
+
 local DEFENSE_STEP = 0.04       -- % per point of defense vs weapon skill [docs] Camelot PaperDollFrameStats.lua
 local BASE_MISS, BASE_CRIT = 5, 5
 local CRUSH_MIN_GAP = 15        -- crushing blows start at a 15-point skill gap: 2 % per point - 15 %
@@ -82,7 +94,24 @@ function Avoidance.Read()
     local fromAgi = Num(GetDodgeChanceFromAttribute)
     snap.agility = agility
     snap.dodgePerAgi = (agility and agility > 0 and fromAgi) and (fromAgi * 100 / agility) or 0
+    snap.buffs = {}
+    for _, buff in ipairs(Avoidance.PLANNED) do snap.buffs[buff.key] = HasAura(buff.ids) end
     return snap
+end
+
+-- What-if delta for planned buffs: ticked = { [key] = true }. Buffs already up are in the sheet values: skipped.
+-- Kings adds 10 % of Agility, counting the flat Agility of the other ticked buffs.
+function Avoidance.PlannedDelta(snap, ticked)
+    local flat, pct = 0, 0
+    local kingsUp = snap.buffs and snap.buffs.kings
+    for _, buff in ipairs(Avoidance.PLANNED) do
+        if ticked and ticked[buff.key] and not (snap.buffs and snap.buffs[buff.key]) then
+            flat = flat + (buff.agility or 0)
+            pct = pct + (buff.pct or 0)
+        end
+    end
+    local agility = flat * (kingsUp and 1.1 or 1) + (snap.agility or 0) * pct / 100 + flat * pct / 100
+    return { agility = agility }
 end
 
 ---------------------------------------------------------------------------------------------------------------

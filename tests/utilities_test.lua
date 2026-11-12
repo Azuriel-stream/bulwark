@@ -93,7 +93,7 @@ return function(sim, t)
     -- Page shows the table and verdicts.
     sim:Slash("/bwk")
     NS.Window:Select("utilities", "avoidance")
-    local page = NS:GetArea("utilities").pages[1]
+    local page = NS:GetArea("utilities").pages[1]   -- avoidance
     t.ok(page.frame and page.frame:IsShown(), "Avoidance page built and shown")
     t.eq(page.rows.total.value:GetText(), "43.60%", "total on the page")
     t.eq(page.rows.crush.value:GetText(), "15.00%", "crush on the page")
@@ -166,7 +166,8 @@ return function(sim, t)
     t.eq(NS.db.utilities.tooltip, false, "tooltip note off by default")
     t.eq(#sim:ShowItemTooltip(legs), 0, "no line while the option is off")
     NS.Window:Select("utilities", "options")
-    local opt = NS:GetArea("utilities").pages[3]
+    local function pageOf(key) for _, p in ipairs(NS:GetArea("utilities").pages) do if p.key == key then return p end end end
+    local opt = pageOf("options")
     t.ok(opt.frame and opt.frame:IsShown(), "Options page built and shown")
     t.eq(opt.tooltip:GetChecked() and true or false, false, "checkbox shows off")
     opt.tooltip:Click()
@@ -203,6 +204,43 @@ return function(sim, t)
     t.eq(#sim:ShowItemTooltip(legs), 0, "area off: no line")
     NS:SetAreaEnabled("utilities", true)
     t.eq(#sim:ShowItemTooltip(legs), 1, "area back on: line again (hook installed once)")
+
+    -- Planned buffs: Agility through dodge; buffs already up are skipped; Kings scales the other buffs.
+    local ps = snap({ agility = 100, dodgePerAgi = 0.05, buffs = {} })
+    near(Av.PlannedDelta(ps, { mongoose = true }).agility, 25, "Mongoose +25")
+    near(Av.PlannedDelta(ps, { kings = true }).agility, 10, "Kings: 10 % of 100")
+    near(Av.PlannedDelta(ps, { kings = true, wild = true }).agility, 27.6, "Kings + Wild: 10 + 16 x 1.1")
+    ps.buffs.wild = true
+    near(Av.PlannedDelta(ps, { wild = true }).agility, 0, "already up: not counted twice")
+    ps.buffs.kings = true
+    near(Av.PlannedDelta(ps, { mongoose = true }).agility, 27.5, "Kings up: Mongoose x 1.1")
+    -- Page: Mark of the Wild already up shows "active" and can't be ticked; ticking Mongoose adds 25 x 0.05 dodge.
+    sim.units.player.auras = { { spellId = 9885, name = "Mark of the Wild" } }
+    Av:Update()
+    NS.Window:Select("utilities", "buffs")
+    local bp = pageOf("buffs")
+    t.ok(bp.frame and bp.frame:IsShown(), "Buffs page built and shown")
+    t.eq(bp.states.wild:GetText(), "active", "Mark of the Wild shown as active")
+    t.eq(bp.rows.total.change:GetText(), "", "nothing ticked: no change")
+    bp.boxes.mongoose:Click()
+    t.eq(bp.rows.dodge.change:GetText(), "+1.25", "Mongoose: 25 Agility x 0.05 = +1.25 dodge")
+    bp.boxes.mongoose:Click()
+    t.eq(bp.rows.dodge.change:GetText(), "", "unticked again")
+    sim.units.player.auras = {}
+    Av:Update()
+
+    -- Stat values: per point and points for +1 % (shield worn, can parry; dodge 0.05 per Agility).
+    near(Av.ValuePerPoint(snap({ dodgePerAgi = 0.05 }), "defense"), 0.16, "1 defense = 0.16 %")
+    near(Av.ValuePerPoint(snap({ dodgePerAgi = 0.05 }), "agility"), 0.05, "1 agility = 0.05 %")
+    near(Av.ValuePerPoint(snap(), "parry"), 1 / 15, "1 parry rating = 1/15 %")
+    near(Av.ValuePerPoint(snap({ hasShield = false }), "block"), 0, "no shield: block rating worth nothing")
+    near(Av.ValuePerPoint(snap({ hasShield = false }), "defense"), 0.12, "no shield: defense 0.12")
+    NS.Window:Select("utilities", "values")
+    local vp = pageOf("values")
+    t.ok(vp.frame and vp.frame:IsShown(), "Stat values page built and shown")
+    t.eq(vp.rows.defense.per:GetText(), "0.160%", "defense per point on the page")
+    t.eq(vp.rows.defense.need:GetText(), "6.3", "6.25 defense for +1 %")
+    t.eq(vp.rows.block.need:GetText(), "5.0", "5 block rating for +1 %")
 
     -- Command prints the same table.
     local before = #sim.output

@@ -352,6 +352,146 @@ NS:AddPage(area.key, {
 })
 
 ---------------------------------------------------------------------------------------------------------------
+-- Buffs: what missing buffs and consumables would add (Uncrushable Helper's "planned buffs")
+---------------------------------------------------------------------------------------------------------------
+
+NS:AddPage(area.key, {
+    key = "buffs",
+    title = L["PAGE_BUFFS"],
+    build = function(page, parent)
+        local y = Kit.PageHeader(parent, L["PAGE_BUFFS"], L["BUFFS_DESC"])
+        page.ticked = {}
+        local list = Card(parent, L["CARD_PLANNED"], y, 40 + #Avoidance.PLANNED * 28 + 6)
+        page.boxes, page.states = {}, {}
+        for i, buff in ipairs(Avoidance.PLANNED) do
+            local cb = Kit.Checkbox(list, L["PB_" .. buff.key], nil, function(checked)
+                page.ticked[buff.key] = checked or nil
+                page:refresh()
+            end)
+            cb:SetPoint("TOPLEFT", 12, -36 - (i - 1) * 28)
+            page.boxes[buff.key] = cb
+            local state = Kit.Text(list, 11, GOOD)
+            state:SetPoint("TOPRIGHT", list, "TOPRIGHT", -16, -42 - (i - 1) * 28)
+            page.states[buff.key] = state
+        end
+        local result = Card(parent, "", y - (40 + #Avoidance.PLANNED * 28 + 6) - 10, 132)
+        page.resultTitle = result.title
+        page.frozen = Kit.Text(result, 11, C.warn)
+        page.frozen:SetPoint("TOPRIGHT", -14, -14)
+        page.rows = {
+            dodge = CompareRow(result, 16, -42, "dodge"),
+            total = CompareRow(result, 16, -61, "total"),
+        }
+        Kit.SetTextColor(page.rows.total.name, C.goldText)
+        page.verdictCrush = Kit.Text(result, 12)
+        page.verdictCrush:SetPoint("TOPLEFT", 16, -88)
+        page.verdictCrush:SetWidth(620)
+        page.verdictCrit = Kit.Text(result, 12)
+        page.verdictCrit:SetPoint("TOPLEFT", 16, -107)
+        page.verdictCrit:SetWidth(620)
+        NS:On("AVOIDANCE_CHANGED", function()
+            if page.frame and page.frame:IsShown() then page:refresh() end
+        end)
+    end,
+    refresh = function(page)
+        local snap, frozen = Avoidance:Get()
+        page.frozen:SetText(frozen and snap and L["AV_FROZEN"] or "")
+        for key, cb in pairs(page.boxes) do
+            local up = snap and snap.buffs and snap.buffs[key]
+            page.states[key]:SetText(up and L["BUFF_ACTIVE"] or "")
+            cb:SetChecked(up or page.ticked[key] or false)
+            cb:SetActive(not up)
+        end
+        if not snap then
+            page.resultTitle:SetText(L["CARD_BUFFS_RESULT_NONE"])
+            for _, row in pairs(page.rows) do row.value:SetText("-"); row.change:SetText("") end
+            page.verdictCrush:SetText(L["AV_NO_DATA"])
+            Kit.SetTextColor(page.verdictCrush, C.muted)
+            page.verdictCrit:SetText("")
+            return
+        end
+        local opts = { offset = cfg().mobOffset, count = cfg().count }
+        local changed = Avoidance.Apply(snap, Avoidance.PlannedDelta(snap, page.ticked))
+        local now, wi = Avoidance.Compute(snap, opts), Avoidance.Compute(changed, opts)
+        page.resultTitle:SetText(string.format(L["CARD_BUFFS_RESULT"], wi.mobLevel))
+        for key, row in pairs(page.rows) do
+            local a = key == "total" and now.total or now.table[key]
+            local b = key == "total" and wi.total or wi.table[key]
+            row.value:SetText(string.format("%.2f  >  %.2f%%", a, b))
+            local d = b - a
+            row.change:SetText(math.abs(d) < 0.005 and "" or string.format("%+.2f", d))
+            Kit.SetTextColor(row.change, GOOD)
+        end
+        ShowVerdicts(page, wi, changed)
+    end,
+})
+
+---------------------------------------------------------------------------------------------------------------
+-- Stat values: total avoidance per point of each stat, for this character
+---------------------------------------------------------------------------------------------------------------
+
+local VALUE_STATS = { "defense", "agility", "dodge", "parry", "block" }
+
+-- Total avoidance (%) from one point of a stat (rating for dodge/parry/block, as items show them).
+function Avoidance.ValuePerPoint(snap, stat)
+    local delta = {}
+    if stat == "defense" or stat == "agility" then
+        delta[stat] = 1
+    else
+        Avoidance.AddItemStats(delta, { ["ITEM_MOD_" .. stat:upper() .. "_RATING_SHORT"] = 1 }, 1)
+    end
+    local before = Avoidance.Compute(snap, { offset = cfg().mobOffset }).total
+    return Avoidance.Compute(Avoidance.Apply(snap, delta), { offset = cfg().mobOffset }).total - before
+end
+
+NS:AddPage(area.key, {
+    key = "values",
+    title = L["PAGE_VALUES"],
+    build = function(page, parent)
+        local y = Kit.PageHeader(parent, L["PAGE_VALUES"], L["VALUES_DESC"])
+        local card = Card(parent, L["CARD_VALUES"], y, 62 + #VALUE_STATS * 22 + 48)   -- room for the two-line note ([in-game] it hung out)
+        local head1 = Kit.Text(card, 11, C.muted)
+        head1:SetPoint("TOPRIGHT", card, "TOPLEFT", 380, -40)
+        head1:SetText(L["VALUES_PER_POINT"])
+        local head2 = Kit.Text(card, 11, C.muted)
+        head2:SetPoint("TOPRIGHT", card, "TOPLEFT", 560, -40)
+        head2:SetText(L["VALUES_FOR_ONE"])
+        page.rows = {}
+        for i, stat in ipairs(VALUE_STATS) do
+            local ry = -62 - (i - 1) * 22
+            local name = Kit.Text(card, 12)
+            name:SetPoint("TOPLEFT", 16, ry)
+            name:SetText(L["VAL_" .. stat])
+            local per = Kit.Text(card, 12)
+            per:SetPoint("TOPRIGHT", card, "TOPLEFT", 380, ry)
+            local need = Kit.Text(card, 12, C.goldText)
+            need:SetPoint("TOPRIGHT", card, "TOPLEFT", 560, ry)
+            page.rows[stat] = { per = per, need = need }
+        end
+        page.note = Kit.Paragraph(card, "", 600, 11, C.muted)
+        page.note:SetPoint("TOPLEFT", 16, -62 - #VALUE_STATS * 22 - 4)
+        NS:On("AVOIDANCE_CHANGED", function()
+            if page.frame and page.frame:IsShown() then page:refresh() end
+        end)
+    end,
+    refresh = function(page)
+        local snap = Avoidance:Get()
+        page.note:SetText(snap and string.format(L["VALUES_NOTE"], snap.dodgePerAgi > 0 and (1 / snap.dodgePerAgi) or 0) or L["AV_NO_DATA"])
+        for _, stat in ipairs(VALUE_STATS) do
+            local row = page.rows[stat]
+            local v = snap and Avoidance.ValuePerPoint(snap, stat) or 0
+            if v > 0.00005 then
+                row.per:SetText(string.format("%.3f%%", v))
+                row.need:SetText(string.format("%.1f", 1 / v))
+            else
+                row.per:SetText(snap and L["VAL_NONE"] or "-")
+                row.need:SetText("")
+            end
+        end
+    end,
+})
+
+---------------------------------------------------------------------------------------------------------------
 -- Options: switches for the helpers that show up outside the window
 ---------------------------------------------------------------------------------------------------------------
 
