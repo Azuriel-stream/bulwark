@@ -1,5 +1,5 @@
 local ADDON_NAME, NS = ...
-local Utils, D, L = NS.Utils, NS.AuditData, NS.L
+local Utils, L, Voices = NS.Utils, NS.L, NS.AuditVoices
 
 -- Lua side of tile clicks: chat requests and opening bags. Casting and cancelling are done by the secure buttons
 -- themselves (Bar.lua). (from TankAuditForever Modules/Requests.lua)
@@ -11,10 +11,6 @@ local lastSent = {}
 -- The latest request, for Gratitude.lua: { ids = set, time, spellText }
 Requests.pending = nil
 
-local function Pick(list)
-    return list[math.random(1, #list)]
-end
-
 local LOCAL_HINTS = {
     WELL_FED = "MSG_LOCAL_FOOD",
     WEAPON_BUFF = "MSG_LOCAL_WEAPON",
@@ -22,16 +18,13 @@ local LOCAL_HINTS = {
     FLASK = "MSG_LOCAL_FLASK",
 }
 
+-- The message in the player's voice (Voices.lua). A debuff is secret in combat, so its tile only knows the type.
 function Requests:BuildMessage(entry)
-    if entry.kind == "debuff" then
-        -- The debuff itself is secret in combat; the tile knows its dispel type
-        return string.format(L["MSG_NEED_DISPEL_TYPE"], L[entry.dispelType] or entry.dispelType or "?")
-    end
-    if entry.key == "HEALTHSTONE" then
-        return L["MSG_NEED_HS"]
+    if entry.kind == "debuff" or entry.key == "HEALTHSTONE" then
+        return Voices.Request(entry)
     end
     local spellText = Utils.SpellChatName(entry.spellId, entry.label)
-    local msg = string.format(Pick(D.REQUESTS[entry.messageKey] or D.REQUESTS.DEFAULT), spellText)
+    local msg = Voices.Request(entry, spellText)
     if entry.expiresAt and entry.expiresAt > 0 then -- clicked while expiring: say when it fades
         local left = entry.expiresAt - GetTime()
         if left > 0 then

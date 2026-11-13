@@ -36,6 +36,7 @@ Areas\Alerts\Area.lua
 # Audit: from TankAuditForever
 Areas\Audit\Data.lua
 Areas\Audit\Roster.lua
+Areas\Audit\Voices.lua
 Areas\Audit\Requests.lua
 Areas\Audit\Gratitude.lua
 Areas\Audit\Bar.lua

@@ -13,7 +13,7 @@ local queued = false
 
 local function cfg() return NS.db.audit end
 
--- plan.tiles = ordered items: { tileKey, key, label, spellId, messageKey, watchIds, ids, warn, expiresAt,
+-- plan.tiles = ordered items: { tileKey, key, label, spellId, messageKey, provider, subgroupOnly, watchIds, ids, warn, expiresAt,
 --                               action = { type = "spell"|"request"|"bags", spell, unit } }
 -- plan.salvation = show the Salvation (cancel) slot
 -- plan.dispelActions = { [dispelType] = action } for the debuff tiles to show
@@ -211,6 +211,7 @@ function Scanner:BuildPlan(helpful)
                     local item = SpellItem("GROUP:" .. def.key, def.key, def.ids, def.label, GROUP_WARN, byId, def.greater)
                     item.action = CastOrRequest(def.ids, def.castId)
                     item.watchIds = item.ids
+                    item.provider, item.subgroupOnly = def.provider, def.subgroupOnly -- {who} in the request
                     tiles[#tiles + 1] = item
                 end
             end
@@ -221,6 +222,7 @@ function Scanner:BuildPlan(helpful)
                     local item = SpellItem("BLESSING:" .. priority[i], priority[i], def.ids, nil, GROUP_WARN, byId, def.greater)
                     item.action = CastOrRequest(def.ids)
                     item.watchIds = item.ids
+                    item.provider = "PALADIN"
                     tiles[#tiles + 1] = item
                 end
             end
@@ -258,7 +260,7 @@ function Scanner:BuildPlan(helpful)
         end
         if carried == 0 then
             tiles[#tiles + 1] = { tileKey = "HEALTHSTONE", key = "HEALTHSTONE", label = L["HEALTHSTONE"],
-                messageKey = "HEALTHSTONE", action = { type = "request" }, alwaysShow = true }
+                messageKey = "HEALTHSTONE", provider = "WARLOCK", action = { type = "request" }, alwaysShow = true }
         end
     end
 

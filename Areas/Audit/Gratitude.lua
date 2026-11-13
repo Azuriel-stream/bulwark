@@ -1,5 +1,5 @@
 local ADDON_NAME, NS = ...
-local Utils, D = NS.Utils, NS.AuditData
+local Utils, Voices = NS.Utils, NS.AuditVoices
 
 -- When a requested buff arrives, whisper its caster a thank-you. AuraData.sourceUnit names the actual caster, and
 -- group members' names aren't secret on Forever. (from TankAuditForever Modules/Gratitude.lua)
@@ -35,8 +35,7 @@ function Gratitude:Check(helpfulAuras)
             local target = Utils.GetUnitFullName(source)
             local firstName = Utils.SafeString((UnitName(source)), nil)
             if target and firstName and not Utils.ChatRestricted() then
-                local text = D.THANKS[math.random(1, #D.THANKS)]
-                C_ChatInfo.SendChatMessage(string.format(text, pending.spellText, firstName), "WHISPER", nil, target)
+                C_ChatInfo.SendChatMessage(Voices.Thanks(pending.spellText, firstName), "WHISPER", nil, target)
             end
             return
         end

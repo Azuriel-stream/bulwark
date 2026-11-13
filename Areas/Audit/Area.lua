@@ -31,6 +31,7 @@ NS.DefaultConfig.audit = {
     checkDurability = true,     -- tile: an equipped item at or below durabilityWarn %
     durabilityWarn = 25,
     gratitude = true,           -- whisper the caster when a requested buff arrives
+    raceVoice = true,           -- requests and thank-yous in the player's race voice (Voices.lua); off = Neutral
     watchSound = true,          -- in-combat sound when Battle Shout / Righteous Fury is about to fade
     watchWarnSeconds = 15,
     watchDurations = {},        -- [spellID] = real duration learned out of combat
@@ -137,6 +138,12 @@ NS:AddPage(area.key, {
             cfg().gratitude = checked
         end)
         page.gratitude:SetPoint("TOPLEFT", 12, -38)
+        local _, raceName = NS.AuditVoices.PlayerRace()
+        page.raceVoice = Kit.Checkbox(thanks, L["AUDIT_OPT_RACE_VOICE"],
+            string.format(L["AUDIT_OPT_RACE_VOICE_DESC"], raceName or L["AUDIT_VOICE_UNKNOWN"]), function(checked)
+            cfg().raceVoice = checked
+        end)
+        page.raceVoice:SetPoint("TOPLEFT", 312, -38)
     end,
     refresh = function(page)
         for key, cb in pairs(page.checks) do cb:SetChecked(cfg()[key]) end
@@ -151,6 +158,7 @@ NS:AddPage(area.key, {
         end
         Kit.SetTextColor(page.consNote, consOn and C.muted or C.disabled)
         page.gratitude:SetChecked(cfg().gratitude)
+        page.raceVoice:SetChecked(cfg().raceVoice)
     end,
 })
 
@@ -338,8 +346,33 @@ NS:AddPage(area.key, {
 
 area.commandHelp = {
     "|cffffd160/bwk audit|r lock||unlock||reset  " .. L["HELP_AUDIT_TILES"],
-    "|cffffd160/bwk audit|r scan||dump||status  " .. L["HELP_AUDIT_TOOLS"],
+    "|cffffd160/bwk audit|r scan||dump||status||voice  " .. L["HELP_AUDIT_TOOLS"],
 }
+
+-- /bwk audit voice: the voice in use and the message each current request tile would send (printed, not sent).
+local function VoicePreview()
+    local Voices = NS.AuditVoices
+    local _, key = Voices.Current()
+    local _, raceName = Voices.PlayerRace()
+    NS:Print(L["AUDIT_VOICE_STATUS"], raceName or "?", key == "NEUTRAL" and L["AUDIT_VOICE_NEUTRAL"] or key)
+    local shown = 0
+    for _, item in ipairs((NS.AuditScanner.plan or {}).tiles or {}) do
+        if item.action and item.action.type == "request" then
+            if shown == 0 then print("  " .. L["AUDIT_VOICE_PREVIEW"]) end
+            shown = shown + 1
+            print("  - " .. NS.AuditRequests:BuildMessage(item))
+        end
+    end
+    for dtype, action in pairs((NS.AuditScanner.plan or {}).dispelActions or {}) do
+        if action.type == "request" then
+            if shown == 0 then print("  " .. L["AUDIT_VOICE_PREVIEW"]) end
+            shown = shown + 1
+            print("  - " .. NS.AuditRequests:BuildMessage({ key = "DEBUFF", kind = "debuff", dispelType = dtype }))
+        end
+    end
+    if shown == 0 then print("  " .. L["AUDIT_VOICE_NONE"]) end
+    print("  - " .. Voices.Thanks(Utils.SpellChatName(1243), "Thalindra"))
+end
 
 function area.command(args)
     local cmd = args:lower():match("^(%S*)")
@@ -355,6 +388,8 @@ function area.command(args)
         if NS:IsAreaRunning("audit") then NS.AuditScanner:Scan() else NS:Print(L["AUDIT_NOT_RUNNING"]) end
     elseif cmd == "dump" then
         NS.AuditScanner:Dump()
+    elseif cmd == "voice" then
+        VoicePreview()
     elseif cmd == "status" then
         local tiles, types, salvation = PlanSummary()
         NS:Print("%s: %s", L["AREA_AUDIT"], NS:IsAreaRunning("audit") and L["STATUS_ON"] or L["STATUS_OFF"])
