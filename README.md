@@ -36,7 +36,7 @@ buttons move over by themselves; macros that `/click TMF_...` need `TMF_` change
 | `/bwk alerts test miss\|cc\|disarm\|whisper [name]` | send a test alert through the real channel |
 | `/bwk alerts status` | show the Alerts settings |
 | `/bwk audit lock\|unlock\|reset` | lock, unlock (drag) or reset the Audit tiles |
-| `/bwk audit scan\|dump\|status` | scan now, list your auras with spell IDs, show what's checked |
+| `/bwk audit scan\|dump\|status\|voice` | scan now, list your auras with spell IDs, show what's checked, preview your chat messages |
 | `/bwk mark announce\|plan\|status` | post the kill order, print the pack plan, show status |
 | `/bwk mark learn <1-9\|ignore\|cc> [icon\|class]`, `/bwk mark forget` | teach or forget the hovered/targeted mob |
 | `/bwk mark select clear`, `/bwk mark overlay` | clear the Shift-hover selection, toggle planned icons |
@@ -64,7 +64,9 @@ all good. Each tile shows the live buff and timer even in combat.
 - **Self buffs and stance:** Battle Shout and Defensive Stance, or Righteous Fury. Click to cast. In combat a
   sound plays (and the tile glows) about 15 s before your own buff fades.
 - **Group buffs and blessings:** from the classes in your group; click to ask in party/raid chat. When the buff
-  arrives, the caster gets a thank-you whisper.
+  arrives, the caster gets a thank-you whisper. Requests name the one player who can answer (or the class, plural,
+  when several can) and speak in your race's voice: each of Forever's races, High Order and Windshaper Skyborne
+  included, has its own lines (Audit > Checks > Messages; off = plain lines).
 - **Consumables:** Well Fed and the weapon buff, optionally an elixir or a flask; click to open your bags.
 - **Healthstone:** when a warlock is in the group and you carry none.
 - **Debuffs:** one tile per debuff type you or your group can remove; click to dispel yourself or ask.
