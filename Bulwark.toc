@@ -64,6 +64,7 @@ Areas\Utilities\Avoidance.lua
 Areas\Utilities\Data\Enchants.lua
 Areas\Utilities\Enchants.lua
 Areas\Utilities\GearAudit.lua
+Areas\Utilities\AuctionHouse.lua
 Areas\Utilities\ItemTooltip.lua
 Areas\Utilities\MobTooltip.lua
 Areas\Utilities\Area.lua

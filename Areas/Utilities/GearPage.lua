@@ -1,5 +1,5 @@
 local ADDON_NAME, NS = ...
-local L, Kit, Avoidance, Gear, Enchants = NS.L, NS.Kit, NS.Avoidance, NS.GearAudit, NS.Enchants
+local L, Kit, Avoidance, Gear, Enchants, AH = NS.L, NS.Kit, NS.Avoidance, NS.GearAudit, NS.Enchants, NS.AuctionHouse
 local C = Kit.C
 
 -- Gear page: paperdoll of the chosen set with enchant verdicts (kb/addons/Bulwark-Utilities.md "Idea: Gear audit").
@@ -150,9 +150,32 @@ end
 local PICK_ROWS, ROW_H = 7, 20
 local COL_GAIN, COL_STA = 268, 336
 
+-- What one enchant costs with Auctionator's prices: the item that applies it, or all its mats ({ item, n } list).
+local function SourceCostList(src)
+    if src.item then return { { item = src.item, n = 1 } } end
+    local list = {}
+    for i = 1, #(src.reagents or {}), 2 do list[#list + 1] = { item = src.reagents[i], n = src.reagents[i + 1] } end
+    return list
+end
+
+-- "Cost: 4g 20s" (+ "2 without a price"); nothing without Auctionator.
+local function AddCost(src)
+    if not AH.Available() then return end
+    local total, unknown = AH.Cost(SourceCostList(src))
+    local text
+    if total > 0 then
+        text = string.format(L["AH_COST"], AH.Money(total))
+        if unknown > 0 then text = text .. "  " .. string.format(L["AH_UNPRICED"], unknown) end
+    else
+        text = L["AH_NO_PRICE"]
+    end
+    GameTooltip:AddLine(text, C.muted[1], C.muted[2], C.muted[3], true)
+end
+
 local function AddMats(src)
     if src.item then
         GameTooltip:AddLine(L["PICK_TIP_ITEM"], C.muted[1], C.muted[2], C.muted[3], true)
+        AddCost(src)
         return
     end
     GameTooltip:AddLine(L["PICK_TIP_MATS"], C.goldText[1], C.goldText[2], C.goldText[3])
@@ -163,6 +186,7 @@ local function AddMats(src)
         GameTooltip:AddDoubleLine(string.format("%dx %s", n, Gear.ItemName(id) or ("#" .. id)),
             string.format(L["PICK_HAVE"], have), 1, 1, 1, c[1], c[2], c[3])
     end
+    AddCost(src)
 end
 
 local function ShowRowTooltip(row)
@@ -531,7 +555,8 @@ NS:AddPage("utilities", {
 -- Enchant list: what was ticked on the Gear page, and the mats still needed (bags + bank)
 ---------------------------------------------------------------------------------------------------------------
 
-local LIST_ROWS, MAT_ROWS = 6, 7
+local LIST_ROWS, MAT_ROWS = 5, 7        -- 5 pick rows: the page must fit the window with the Auctionator footer ([in-game])
+local HEADER_H = 18          -- column header line above the mats rows (Auctionator only)
 
 local function SetLabel(key)
     if key == Gear.WORN then return L["GEAR_CURRENT_SHORT"] end
@@ -576,10 +601,14 @@ local function TextRow(card, withRemove)
     row.hover = Kit.Fill(row, { 1, 1, 1, 0 })
     row.left = Kit.Text(row, 12)
     row.left:SetPoint("LEFT", 6, 0)
-    row.left:SetPoint("RIGHT", row, "RIGHT", withRemove and -150 or -110, 0)
+    row.left:SetPoint("RIGHT", row, "RIGHT", withRemove and -150 or -250, 0)
     row.left:SetWordWrap(false)
     row.right = Kit.Text(row, 12)
     row.right:SetPoint("RIGHT", withRemove and -34 or -6, 0)
+    if not withRemove then
+        row.price = Kit.Text(row, 12)                -- mats: cost of the missing ones (Auctionator only)
+        row.price:SetPoint("RIGHT", -90, 0)
+    end
     row:SetScript("OnEnter", function(self)
         self.hover:SetColorTexture(1, 1, 1, 0.05)
         if self.tooltip then self.tooltip(self) end
@@ -606,6 +635,7 @@ NS:AddPage("utilities", {
     before = "options",
     build = function(page, parent)
         local y = Kit.PageHeader(parent, L["PAGE_ENCHANT_LIST"], L["ENCHANT_LIST_DESC"])
+        y = y + 8                                    -- the one-line description leaves room: tighter, so both cards fit
         local picks = Kit.Card(parent, L["CARD_PICKED"])
         picks:SetPoint("TOPLEFT", 0, y)
         picks:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
@@ -627,7 +657,22 @@ NS:AddPage("utilities", {
         mats:SetPoint("TOPLEFT", 0, matsY)
         mats:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
         mats:SetHeight(44 + MAT_ROWS * ROW_H + 8)
+        page.matsCard = mats
         page.mats = ScrollRows(mats, MAT_ROWS, -38, function(card) return TextRow(card, false) end)
+        -- Auctionator footer (only while Auctionator is loaded): cost of what's missing + shopping list button.
+        -- Column headers on their own line (the rows move down under them; [in-game] squeezed above row 1 otherwise)
+        page.colPrice = Kit.Text(mats, 11, C.muted)
+        page.colPrice:SetPoint("TOPRIGHT", -100, -40)
+        page.colPrice:SetText(L["AH_COL_PRICE"])
+        page.colHave = Kit.Text(mats, 11, C.muted)
+        page.colHave:SetPoint("TOPRIGHT", -16, -40)
+        page.colHave:SetText(L["AH_COL_HAVE"])
+        page.total = Kit.Text(mats, 12, C.goldText)
+        page.total:SetPoint("BOTTOMLEFT", 16, 14)
+        page.send = Kit.Button(mats, L["BTN_SEND_AUCTIONATOR"], 160, function() page:sendList() end)
+        page.send:SetHeight(20)
+        page.send:SetPoint("BOTTOMRIGHT", -14, 10)
+        Kit.Tooltip(page.send, L["BTN_SEND_AUCTIONATOR"], string.format(L["AH_SEND_DESC"], AH.LIST_NAME))
         page.matsNote = Kit.Text(mats, 12, C.muted)
         page.matsNote:SetPoint("TOPLEFT", 16, -42)
         page.track = Kit.Button(mats, "", 130, function()
@@ -678,21 +723,89 @@ NS:AddPage("utilities", {
         end)
         page.matsNote:SetText(#mats == 0 and (#picks > 0 and L["MATS_ALL_DONE"] or "") or "")
         page.track:SetLabel(NS.char.gear.tracker.shown and L["BTN_TRACK_HIDE"] or L["BTN_TRACK_SHOW"])
+        local priced = AH.Available()
         page.mats:Show(mats, function(row, m)
             local have = Gear.Have(m.item)
+            local missing = math.max(0, m.need - have)
             row.left:SetText(Gear.ItemName(m.item) or ("#" .. m.item))
             row.right:SetText(string.format(L["MATS_HAVE_NEED"], math.min(have, m.need), m.need))
-            local enough = have >= m.need
+            local enough = missing == 0
             Kit.SetTextColor(row.left, enough and C.muted or C.text)
             Kit.SetTextColor(row.right, enough and GOOD or C.warn)
+            local unit, source = nil, nil
+            if priced then unit, source = AH.Price(m.item) end
+            row.price:SetText((priced and missing > 0) and (unit and AH.Money(unit * missing) or L["AH_NO_PRICE_SHORT"]) or "")
+            Kit.SetTextColor(row.price, unit and C.text or C.muted)
             row.tooltip = function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 if not (GameTooltip.SetItemByID and pcall(GameTooltip.SetItemByID, GameTooltip, m.item)) then
                     GameTooltip:SetText(row.left:GetText(), 1, 1, 1)
                 end
                 GameTooltip:AddLine(string.format(L["PICK_HAVE"], have), 1, 1, 1)
+                if priced then
+                    if unit and source == "vendor" then
+                        GameTooltip:AddLine(string.format(L["AH_TIP_VENDOR"], AH.Money(unit)), C.muted[1], C.muted[2], C.muted[3], true)
+                    elseif unit then
+                        local age = AH.Age(m.item)
+                        local seen = age == 0 and L["AH_SEEN_TODAY"] or (age and string.format(L["AH_SEEN_DAYS"], age)) or ""
+                        GameTooltip:AddLine(string.format(L["AH_TIP_AUCTION"], AH.Money(unit), seen), C.muted[1], C.muted[2], C.muted[3], true)
+                    else
+                        GameTooltip:AddLine(L["AH_TIP_NONE"], C.muted[1], C.muted[2], C.muted[3], true)
+                    end
+                end
                 GameTooltip:Show()
             end
         end)
+
+        -- Auctionator footer
+        local header = (priced and #mats > 0) and HEADER_H or 0
+        page.matsCard:SetHeight(44 + MAT_ROWS * ROW_H + 8 + (priced and 30 or 0) + header)
+        for i, r in ipairs(page.mats.rows) do
+            r:ClearAllPoints()
+            r:SetPoint("RIGHT", page.matsCard, "RIGHT", -10, 0)
+            r:SetPoint("TOPLEFT", 10, -38 - header - (i - 1) * ROW_H)
+        end
+        page.colPrice:SetShown(header > 0)
+        page.colHave:SetShown(header > 0)
+        page.total:SetShown(priced)
+        page.send:SetShown(priced and AH.CanSend())
+        if priced then
+            local buy = page:toBuy(mats)
+            local total, unknown = AH.Cost(buy)
+            local text
+            if #buy == 0 then
+                text = #mats > 0 and L["AH_NOTHING_TO_BUY"] or ""
+            elseif total > 0 then
+                text = string.format(L["AH_TOTAL"], AH.Money(total))
+                if unknown > 0 then text = text .. "  " .. string.format(L["AH_UNPRICED"], unknown) end
+            else
+                text = L["AH_NO_PRICE"]
+            end
+            page.total:SetText(text)
+            page.send:SetActive(#buy > 0)
+        end
+    end,
+
+    -- The mats still missing: { { item, n = need - have } }, only those with n > 0.
+    toBuy = function(_, mats)
+        local list = {}
+        for _, m in ipairs(mats) do
+            local n = m.need - Gear.Have(m.item)
+            if n > 0 then list[#list + 1] = { item = m.item, n = n } end
+        end
+        return list
+    end,
+
+    sendList = function(page)
+        local _, mats = Gear.ShoppingList()
+        local sent, skipped = AH.SendList(page:toBuy(mats), Gear.ItemName)
+        if not sent then
+            NS:Print(L["AH_SEND_FAILED"])
+        elseif sent == 0 then
+            NS:Print(skipped > 0 and L["AH_SEND_NOT_LOADED"] or L["AH_NOTHING_TO_BUY"])
+        else
+            NS:Print(string.format(L["AH_SENT"], sent, AH.LIST_NAME)
+                .. (skipped > 0 and (" " .. string.format(L["AH_SENT_SKIPPED"], skipped)) or ""))
+        end
     end,
 })

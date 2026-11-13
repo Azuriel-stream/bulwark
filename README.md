@@ -122,6 +122,9 @@ these values, so the pages keep the last ones).
 - **Enchant list:** the enchants you ticked and the mats they still need, have/need counted over bags and bank.
   An enchant drops off once it's on the item. **Track on screen** shows the mats in a quest-tracker style list
   that greys each line out once you have enough (drag its title to move it, shift-click a line to link the item).
+  **With [Auctionator](https://www.curseforge.com/wow/addons/auctionator) installed** (optional, never required): what
+  the missing mats cost (the cheaper of the last auction house scan and a vendor that sells them), each enchant's cost in
+  its tooltip, and **Send to Auctionator**, which puts the missing amounts into the shopping list "Bulwark Enchants".
 - **Options:** an item tooltip line showing how an item changes your total avoidance, and a mob tooltip line when
   a mob can crush you. Both off by default.
 
