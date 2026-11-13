@@ -71,7 +71,8 @@ D.UNWANTED = {
 D.WELL_FED = { 19705, 19706, 19708, 19709, 19710, 19711, 24799, 24870, 25694, 25941,
                1225778, 1225779, 1225780, 1225782, 1248406, 1248420, 1248421, 1248422, 1248688,
                1249519, 1249520, 1249521, 1249523, 1249907, 1249926, 1249927, 1283082, 1294007,
-               1302064, 1319310 }
+               1302064, 1319310,
+               25661 }  -- Dirge's Kickin' Chimaerok Chops: "Increased Stamina", not named Well Fed [data]
 -- Elixir / flask BUFF spell IDs (not item IDs), generated 2026-10-05 from Wowhead Forever's elixir and flask item
 -- categories: each item's Use: spell. Utility draughts (water breathing, detection, Giant Growth, Noggenfogger) and
 -- plain alcohol are excluded. Forever renamed some buffs after their item (673 = Elixir of Minor Defense) [in-game].

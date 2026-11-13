@@ -125,6 +125,22 @@ return function(sim, t)
     t.ok(page.picker.title:GetText():find("Wrist", 1, true), "picker title: " .. tostring(page.picker.title:GetText()))
     t.eq(page.rows[1].entry.enchant, 8214, "first row: Superior Deflection")
     t.ok(page.more:GetText():find("of", 1, true), "more rows than fit: scroll note")
+    -- [in-game] a mat whose name isn't loaded showed "#12811" and stayed: the name arrives with ITEM_DATA_LOAD_RESULT
+    -- (RequestLoadItemDataByID), so an open row tooltip is redrawn on it.
+    local tip = sim.env.GameTooltip
+    local function tipHas(text)
+        for _, l in ipairs(tip._lines or {}) do if tostring(l.text):find(text, 1, true) then return true end end
+        return false
+    end
+    page.rows[1]:GetScript("OnEnter")(page.rows[1])
+    t.ok(tipHas("#14344"), "unloaded mat shows its ID first")
+    local getName = sim.env.C_Item.GetItemNameByID
+    sim.env.C_Item.GetItemNameByID = function(id) return id == 14344 and "Large Brilliant Shard" or getName(id) end
+    sim:Fire("ITEM_DATA_LOAD_RESULT", 14344, true)
+    sim:Advance(0.3)
+    t.ok(tipHas("Large Brilliant Shard") and not tipHas("#14344"), "open tooltip redrawn with the loaded name")
+    sim.env.C_Item.GetItemNameByID = getName
+    page.rows[1]:GetScript("OnLeave")(page.rows[1])
     page.rows[1]:Click()
     t.eq(Gear.GetPick("Tank", 9), 1248665, "ticked: on the enchant list")
     t.ok(page.slots[9].pickMark:IsShown(), "gold corner on the slot")
@@ -134,10 +150,19 @@ return function(sim, t)
     page.rows[2]:Click()
     t.eq(Gear.GetPick("Tank", 9), nil, "clicking the ticked row removes it")
     page.rows[1]:Click()
+    -- [in-game] the paperdoll "jumped up" on every scroll: refresh re-set the model (SetUnit restarts its pose).
+    local setUnits = 0
+    local origSetUnit = page.model and page.model.SetUnit
+    if page.model then page.model.SetUnit = function(...) setUnits = setUnits + 1; return origSetUnit(...) end end
     local wheel = page.picker:GetScript("OnMouseWheel")
     wheel(page.picker, -1)
     t.eq(page.rows[1].entry.enchant, 923, "scrolled one row down")
     wheel(page.picker, 1)
+    t.eq(setUnits, 0, "scrolling the picker doesn't reload the character model")
+    sim:Fire("PLAYER_EQUIPMENT_CHANGED", 9, false)
+    sim:Advance(0.3)
+    t.eq(setUnits, 1, "an equipment change reloads it once")
+    if page.model then page.model.SetUnit = origSetUnit end
     -- Cloak: Cloak - Dodge (1 %) beats the agility enchants
     page.slots[15]:Click("LeftButton")
     t.eq(page.rows[1].entry.enchant, 2622, "cloak: Dodge first")

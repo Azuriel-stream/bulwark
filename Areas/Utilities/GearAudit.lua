@@ -274,7 +274,8 @@ function Gear.Have(itemID)
     return Call(C_Item.GetItemCount, itemID, true) or 0
 end
 
--- Item name, or nil while the client hasn't loaded it (asks for it: GET_ITEM_INFO_RECEIVED follows).
+-- Item name, or nil while the client hasn't loaded it (asks for it: ITEM_DATA_LOAD_RESULT follows; listeners also
+-- take GET_ITEM_INFO_RECEIVED, which GetItemInfo-style lookups fire).
 function Gear.ItemName(itemID)
     local name = C_Item.GetItemNameByID and Call(C_Item.GetItemNameByID, itemID)
     if not name and C_Item.RequestLoadItemDataByID then Call(C_Item.RequestLoadItemDataByID, itemID) end

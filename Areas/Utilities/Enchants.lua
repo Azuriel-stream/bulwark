@@ -78,18 +78,25 @@ function Enchants.Gain(snap, enchantID, currentID, opts)
     return gain, (new.sta or 0) - (cur.sta or 0)
 end
 
--- Enchants that fit the item in a slot, best avoidance gain first, then stamina. One entry per enchant:
--- { enchant, gain, stamina, current, sources = { source rows } }.
+-- Caster enchants (generated `caster = true`: spell power or a spell proc, no avoidance) are threat enchants for a
+-- Paladin, whose threat stat is spell power (kb/tanks/paladin.md). Nobody else is offered them.
+function Enchants.ForCaster()
+    return NS.playerClass == "PALADIN"
+end
+
+-- Enchants that fit the item in a slot, best avoidance gain first, then stamina, then spell power. One entry per
+-- enchant: { enchant, gain, stamina, sp, current, sources = { source rows } }.
 function Enchants.ForSlot(snap, slot, item, currentID, opts)
     local list, byEnchant = {}, {}
     local data = NS.EnchantData
     if not data then return list end
+    local caster = Enchants.ForCaster()
     for _, src in ipairs(data.sources) do
-        if Enchants.Fits(src, slot, item, snap.level) then
+        if Enchants.Fits(src, slot, item, snap.level) and (caster or not Enchants.Stats(src.enchant).caster) then
             local entry = byEnchant[src.enchant]
             if not entry then
                 local gain, stamina = Enchants.Gain(snap, src.enchant, currentID, opts)
-                entry = { enchant = src.enchant, gain = gain, stamina = stamina,
+                entry = { enchant = src.enchant, gain = gain, stamina = stamina, sp = Enchants.Stats(src.enchant).sp or 0,
                           current = src.enchant == currentID, sources = {} }
                 byEnchant[src.enchant] = entry
                 list[#list + 1] = entry
@@ -100,6 +107,7 @@ function Enchants.ForSlot(snap, slot, item, currentID, opts)
     table.sort(list, function(a, b)
         if math.abs(a.gain - b.gain) > NOISE then return a.gain > b.gain end
         if a.stamina ~= b.stamina then return a.stamina > b.stamina end
+        if a.sp ~= b.sp then return a.sp > b.sp end
         return a.enchant < b.enchant
     end)
     return list

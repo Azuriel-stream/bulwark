@@ -50,7 +50,9 @@ stunned, feared, incapacitated or disarmed, and whispers players whose threat ge
 
 - **General:** quiet while threat is solid (non-taunt failures aren't announced while you're well ahead on
   threat; taunts always are), test buttons.
-- **Abilities:** which of your class's abilities are tracked (Warrior, Paladin, Druid, Shaman).
+- **Abilities:** which of your class's abilities are tracked (Warrior, Paladin, Druid, Shaman). Only abilities that
+  exist on Forever. Paladin: Judgement counts as a taunt while Seal of Fury is up (that's when it taunts), otherwise
+  as a threat ability; Holy Strike.
 - **CC & Disarm:** what to announce and the time between alerts.
 - **Threat whispers:** on/off, only while tanking, threshold, time between whispers.
 - **Channel:** Auto (Raid Warning when you lead or assist a raid, else Raid or Party), Say, Party, Raid,
@@ -117,6 +119,8 @@ these values, so the pages keep the last ones).
   Avoidance (missing and weaker enchants), Threat (missing only; use it for high-stamina sets too), Resistance
   (missing only, resistance enchants count as correct) or Don't check. Hover a slot for the reason;
   right-click marks a slot as intentional for that set; left-click lists the enchants that fit, with their mats.
+  Paladins also see spell power enchants (their threat stat: Mystic armor kits, Necklace - Spell Power, Weapon -
+  Revelation...), with the spell power in the tooltip; other classes don't.
   Tick enchants to put them on the Enchant list. Item-level and level requirements are respected (armor kits need
   item level 15-45, Zul'Gurub idols level 60).
 - **Enchant list:** the enchants you ticked and the mats they still need, have/need counted over bags and bank.

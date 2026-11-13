@@ -129,8 +129,14 @@ NS:AddPage(area.key, {
         end
         for i, ability in ipairs(order) do
             local data = Spells.Get(class, ability)
-            local label = data.isTaunt and (ability .. "  |cff8a8d91" .. L["TAUNT_TAG"] .. "|r") or ability
-            local cb = Kit.Checkbox(card, label, data.isTaunt and L["TAUNT_TIP"] or nil, function(checked)
+            local tag, tip
+            if data.isTaunt then
+                tag, tip = L["TAUNT_TAG"], L["TAUNT_TIP"]
+            elseif data.tauntWithSeal then
+                tag, tip = L["TAUNT_SEAL_TAG_" .. data.tauntWithSeal], L["TAUNT_SEAL_TIP_" .. data.tauntWithSeal]
+            end
+            local label = tag and (ability .. "  |cff8a8d91" .. tag .. "|r") or ability
+            local cb = Kit.Checkbox(card, label, tip, function(checked)
                 NS.AbilityAlerts.SetTracked(class, ability, checked)
             end)
             local col, row = (i - 1) % 2, math.floor((i - 1) / 2)

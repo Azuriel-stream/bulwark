@@ -33,6 +33,35 @@ return function(sim, t)
     end
     t.ok(origins.vanilla and origins.forever and not origins.sod and not sod, "origins: vanilla + forever, no SoD")
 
+    -- Spell power enchants [data 70938]: kept for Paladins (threat stat), offered to nobody else.
+    t.eq(data.stats[8218].sp, 6, "Necklace - Spell Power = +6")
+    t.ok(data.stats[8218].caster and data.stats[8492].caster, "spell power enchants are caster-only")
+    t.eq(data.stats[8492].armor, 40, "Mystic Rugged Armor Kit keeps its armor")
+    t.eq(data.stats[2504].sp, 30, "Weapon - Spell Power = +30 (Holy-school damage aura)")
+    t.ok(data.stats[8217].proc and data.stats[8217].caster, "Weapon - Revelation: caster proc")
+    t.ok(data.stats[8216] == nil, "Weapon - Insight (Spirit) stays out")
+    do
+        local NECK = 2
+        local neck = { classID = 4, subClassID = 0, equipLoc = "INVTYPE_NECK", ilvl = 60 }
+        local function has(list, id) for _, e in ipairs(list) do if e.enchant == id then return e end end end
+        local NS = sim.env.Bulwark
+        local before = NS.playerClass
+        NS.playerClass = "WARRIOR"
+        local warNeck = E.ForSlot(snap(), NECK, neck, nil)
+        t.ok(#warNeck > 0 and not has(warNeck, 8218), "Warrior: neck enchants, but no spell power necklace")
+        NS.playerClass = "PALADIN"
+        local list = E.ForSlot(snap(), NECK, neck, nil)
+        local sp = has(list, 8218)
+        t.ok(sp and sp.sp == 6, "Paladin: spell power necklace offered with its spell power")
+        local spPos, zeroPos
+        for i, e in ipairs(list) do
+            if e.enchant == 8218 then spPos = i end
+            if math.abs(e.gain) < 0.005 and e.stamina == 0 and e.sp == 0 and not zeroPos then zeroPos = i end
+        end
+        t.ok(not zeroPos or spPos < zeroPos, "spell power breaks the tie before enchants that add nothing")
+        NS.playerClass = before
+    end
+
     -- Link parsing
     t.eq(E.FromLink("|cffffffff|Hitem:12345:923:::::::60|h[x]|h|r"), 923, "enchant from link")
     t.eq(E.FromLink("|cffffffff|Hitem:12345::::::::60|h[x]|h|r"), nil, "no enchant")

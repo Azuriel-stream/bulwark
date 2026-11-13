@@ -181,7 +181,7 @@ end
 
 function Tracker:OnEnable()
     if not frame then Create() end
-    for _, e in ipairs({ "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "GET_ITEM_INFO_RECEIVED",
+    for _, e in ipairs({ "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "GET_ITEM_INFO_RECEIVED", "ITEM_DATA_LOAD_RESULT",
                          "PLAYER_EQUIPMENT_CHANGED", "EQUIPMENT_SETS_CHANGED" }) do
         pcall(events.RegisterEvent, events, e)
     end

@@ -11,6 +11,13 @@ local frame = CreateFrame("Frame", "Bulwark_AbilityAlertsFrame")
 local CAST_WINDOW = 1.5
 local cast = nil   -- { ability, isTaunt, target, icon, time }
 
+-- Paladin seals (tauntWithSeal): which seal the player cast last and when it runs out. Auras are secret in combat
+-- (kb/restrictions.md), so the seal is tracked from the player's own casts; out of combat the aura check also works
+-- (e.g. a seal cast before a /reload). Unknown seal = Judgement counts as a normal threat ability.
+local SEAL_OF = {}
+for kind, ids in pairs(Spells.SEALS) do for _, id in ipairs(ids) do SEAL_OF[id] = kind end end
+local seal = { kind = nil, untilTime = 0 }
+
 local MISS_TYPES = {
     MISS = "MISSED", DODGE = "DODGED", PARRY = "PARRIED", BLOCK = "BLOCKED", RESIST = "RESISTED",
     IMMUNE = "IMMUNE", DEFLECT = "DEFLECTED", REFLECT = "REFLECTED", EVADE = "EVADED",
@@ -52,6 +59,28 @@ local function SpellName(spellID)
     return ok and Utils.SafeString(name, nil) or nil
 end
 
+local function HasSealAura(kind)
+    if not (C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID) then return false end
+    for _, id in ipairs(Spells.SEALS[kind] or {}) do
+        local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, id)
+        if ok and aura ~= nil then return true end
+    end
+    return false
+end
+
+function AbilityAlerts.SealActive(kind)
+    if seal.kind == kind and GetTime() < seal.untilTime then return true end
+    return HasSealAura(kind)
+end
+
+local function OnSpellcastSucceeded(unit, _, spellID)
+    if unit ~= "player" then return end
+    local kind = SEAL_OF[Utils.SafeNumber(spellID) or 0]
+    if kind then
+        seal.kind, seal.untilTime = kind, GetTime() + Spells.SEAL_DURATION
+    end
+end
+
 local function OnSpellcastSent(unit, target, _, spellID)
     if unit ~= "player" then return end
     spellID = Utils.SafeNumber(spellID)
@@ -68,7 +97,8 @@ local function OnSpellcastSent(unit, target, _, spellID)
 
     local icon = Utils.GetRaidTargetToken("target")
     local data = Spells.Get(NS.playerClass, ability)
-    cast = { ability = ability, isTaunt = data.isTaunt == true, target = name, icon = icon, time = GetTime() }
+    local isTaunt = data.isTaunt == true or (data.tauntWithSeal ~= nil and AbilityAlerts.SealActive(data.tauntWithSeal))
+    cast = { ability = ability, isTaunt = isTaunt, target = name, icon = icon, time = GetTime() }
 end
 
 local function Expired()
@@ -117,6 +147,8 @@ end
 local function OnEvent(_, event, ...)
     if event == "UNIT_SPELLCAST_SENT" then
         OnSpellcastSent(...)
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        OnSpellcastSucceeded(...)
     elseif event == "UNIT_COMBAT" then
         OnUnitCombat(...)
     elseif event == "UI_ERROR_MESSAGE" then
@@ -126,6 +158,7 @@ end
 
 function AbilityAlerts:OnEnable()
     frame:RegisterEvent("UNIT_SPELLCAST_SENT")
+    if NS.playerClass == "PALADIN" then frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player") end
     frame:RegisterEvent("UNIT_COMBAT")
     frame:RegisterEvent("UI_ERROR_MESSAGE")
     frame:SetScript("OnEvent", OnEvent)

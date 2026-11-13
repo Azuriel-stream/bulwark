@@ -203,6 +203,9 @@ local function ShowRowTooltip(row)
     else
         GameTooltip:AddLine(string.format(L["PICK_TIP_GAIN"], Gain(e.gain), e.stamina), 1, 1, 1, true)
     end
+    if (e.sp or 0) > 0 then
+        GameTooltip:AddLine(string.format(L["PICK_TIP_SP"], e.sp), 1, 1, 1, true)
+    end
     if (Enchants.Stats(e.enchant).block or 0) > 0 and Enchants.IgnoresBlock((Avoidance:Get())) then
         GameTooltip:AddLine(L["PICK_TIP_NO_BLOCK"], C.muted[1], C.muted[2], C.muted[3], true)
     end
@@ -324,10 +327,14 @@ NS:AddPage("utilities", {
         doll:SetSize(DOLL_W - 2 * SLOT_SIZE - 12, 8 * SLOT_STEP - 3)
         Kit.Fill(doll, C.panel)
         Kit.Border(doll, C.cardBorder)
+        -- SetUnit reloads the model, which restarts from its loading pose ([in-game] the character "jumped up" on
+        -- every picker scroll when refresh called it). So: set it when the page opens and after an equipment change.
         local ok, model = pcall(CreateFrame, "PlayerModel", nil, doll)
         if ok and model then
             model:SetAllPoints()
             page.model = model
+            page.modelDirty = true
+            model:SetScript("OnShow", function() page:setModel() end)
         end
         page.modelNote = Kit.Paragraph(doll, "", DOLL_W - 2 * SLOT_SIZE - 24, 10, C.muted)
         page.modelNote:SetPoint("BOTTOM", 0, 6)
@@ -433,7 +440,8 @@ NS:AddPage("utilities", {
                 pending = false
                 if page.frame and page.frame:IsShown() then
                     page:refresh()
-                    -- A mat name loads after the tooltip was drawn ("#11176"): redraw it (GET_ITEM_INFO_RECEIVED).
+                    -- A mat name loads after the tooltip was drawn ("#11176"): redraw it. RequestLoadItemDataByID answers with
+                    -- ITEM_DATA_LOAD_RESULT, not GET_ITEM_INFO_RECEIVED ([in-game] "#12811" stayed while only GET_ITEM_INFO_RECEIVED was registered).
                     local owner = GameTooltip:GetOwner()
                     if owner and owner.isPickRow and owner.entry and owner:IsVisible() then ShowRowTooltip(owner) end
                 end
@@ -441,12 +449,20 @@ NS:AddPage("utilities", {
         end
         local events = CreateFrame("Frame")
         for _, e in ipairs({ "PLAYER_EQUIPMENT_CHANGED", "EQUIPMENT_SETS_CHANGED", "EQUIPMENT_SWAP_FINISHED",
-                             "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "GET_ITEM_INFO_RECEIVED" }) do
+                             "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "GET_ITEM_INFO_RECEIVED",
+                             "ITEM_DATA_LOAD_RESULT" }) do
             pcall(events.RegisterEvent, events, e)
         end
-        events:SetScript("OnEvent", Later)
+        events:SetScript("OnEvent", function(_, event)
+            if event == "PLAYER_EQUIPMENT_CHANGED" or event == "EQUIPMENT_SWAP_FINISHED" then page.modelDirty = true end
+            Later()
+        end)
         NS:On("AVOIDANCE_CHANGED", Later)
         NS:On("GEAR_PICKS_CHANGED", Later)
+    end,
+    setModel = function(page)
+        page.modelDirty = false
+        if page.model then pcall(page.model.SetUnit, page.model, "player") end
     end,
 
     step = function(page, dir)
@@ -476,9 +492,7 @@ NS:AddPage("utilities", {
         page.school:SetShown(c.purpose == "resistance")
         page.school:SetLabel(string.format(L["GEAR_SCHOOL"], L["SCHOOL_" .. c.school]))
 
-        if page.model then
-            pcall(page.model.SetUnit, page.model, "player")
-        end
+        if page.modelDirty then page:setModel() end
         page.modelNote:SetText(set.worn and "" or L["GEAR_MODEL_NOTE"])
 
         local snap, frozen = Avoidance:Get()
@@ -695,7 +709,7 @@ NS:AddPage("utilities", {
             end)
         end
         local events = CreateFrame("Frame")
-        for _, e in ipairs({ "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "GET_ITEM_INFO_RECEIVED",
+        for _, e in ipairs({ "BAG_UPDATE_DELAYED", "BANKFRAME_OPENED", "GET_ITEM_INFO_RECEIVED", "ITEM_DATA_LOAD_RESULT",
                              "PLAYER_EQUIPMENT_CHANGED", "EQUIPMENT_SETS_CHANGED" }) do
             pcall(events.RegisterEvent, events, e)
         end
