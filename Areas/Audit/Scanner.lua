@@ -128,7 +128,8 @@ local function GearTile(key, detail)
 end
 
 -- Gear warning tiles (only what's wrong):
---   defense skill below level x 5 (groups only: it lags after every level-up while you quest),
+--   defense skill 2+ points below level x 5 (groups only: it lags after every level-up while you quest; the last point
+--   before the cap can take 1,000+ hits and is worth 0.04 % per avoidance stat, so cap - 1 counts as maxed),
 --   tanking (Defensive Stance / Righteous Fury) without a shield,
 --   an equipped item at or below c.durabilityWarn % durability.
 function Scanner.GearWarnings(c, solo, byId)
@@ -138,7 +139,7 @@ function Scanner.GearWarnings(c, solo, byId)
         local ok, base, mod = pcall(UnitDefenseSkill, "player")
         base, mod = ok and Utils.SafeNumber(base), ok and Utils.SafeNumber(mod, 0) or 0
         local cap = level * 5
-        if base and base < cap then
+        if base and base < cap - 1 then
             local detail = string.format(L["GEAR_DEFENSE_SKILL_DETAIL"], base, cap)
             if base + mod < cap then detail = detail .. " " .. L["GEAR_DEFENSE_SKILL_CRUSH"] end
             out[#out + 1] = GearTile("DEFENSE_SKILL", detail)

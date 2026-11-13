@@ -34,7 +34,14 @@ return function(sim, t)
     H.Rescan(w)
     t.ok(not H.Find(w, "GEAR:DEFENSE_SKILL"), "switched off: no tile")
     audit.checkDefenseSkill = true
-    w.stats.defense, w.stats.defenseMod = 300, 0
+    -- One point short counts as maxed (the last point is very slow and worth 0.04 %); two points short is a tile.
+    w.stats.defense, w.stats.defenseMod = 299, 0
+    H.Rescan(w)
+    t.ok(not H.Find(w, "GEAR:DEFENSE_SKILL"), "299/300: no tile: " .. H.Keys(w))
+    w.stats.defense = 298
+    H.Rescan(w)
+    t.ok(H.Find(w, "GEAR:DEFENSE_SKILL"), "298/300: tile")
+    w.stats.defense = 300
 
     -- No shield in Defensive Stance: tile; out of the stance: nothing.
     w.equipped[17] = nil
