@@ -2,9 +2,23 @@
 -- threat ability; Holy Strike uses Forever's rank IDs; abilities that don't exist on Forever are gone.
 -- Facts: kb/tanks/paladin.md.
 return function(sim, t)
-    -- Shaman list (default warrior client): only Forever abilities.
+    -- No Shaman list: Shaman tanking isn't supported on Forever (kb/tanks/shaman.md).
     local Spells = sim.env.Bulwark.AlertSpells
-    t.eq(table.concat(Spells.Order.SHAMAN, ","), "Earth Shock,Frost Shock,Stormstrike", "Turtle-only Shaman spells gone")
+    t.ok(Spells.Order.SHAMAN == nil and Spells.Abilities.SHAMAN == nil, "no Shaman abilities")
+    t.eq(Spells.Find("SHAMAN", 8042, "Earth Shock"), nil, "a Shaman's Earth Shock isn't tracked")
+    do
+        local sh = t.fresh(function(s) s.units.player.class = "SHAMAN" end)
+        local SNS = sh.env.Bulwark
+        t.ok(SNS:IsAreaRunning("alerts"), "Alerts still runs for a Shaman (loss of control, threat whispers)")
+        sh:Slash("/bwk alerts")
+        SNS.Window:Select("alerts", "general")
+        local general
+        for _, pg in ipairs(SNS:GetArea("alerts").pages) do if pg.key == "general" then general = pg end end
+        t.ok(general and general.classText, "General page built")
+        general:refresh()
+        t.ok(tostring(general.classText:GetText()):find("no tank abilities", 1, true),
+            "General page: " .. tostring(general.classText:GetText()))
+    end
     t.eq(table.concat(Spells.Order.PALADIN, ","), "Judgement,Holy Strike", "Paladin list")
     t.ok(Spells.Get("PALADIN", "Hand of Reckoning") == nil and Spells.Get("PALADIN", "Righteous Defense") == nil,
         "TBC taunts gone")

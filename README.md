@@ -50,7 +50,7 @@ stunned, feared, incapacitated or disarmed, and whispers players whose threat ge
 
 - **General:** quiet while threat is solid (non-taunt failures aren't announced while you're well ahead on
   threat; taunts always are), test buttons.
-- **Abilities:** which of your class's abilities are tracked (Warrior, Paladin, Druid, Shaman). Only abilities that
+- **Abilities:** which of your class's abilities are tracked (Warrior, Paladin, Druid). Only abilities that
   exist on Forever. Paladin: Judgement counts as a taunt while Seal of Fury is up (that's when it taunts), otherwise
   as a threat ability; Holy Strike.
 - **CC & Disarm:** what to announce and the time between alerts.

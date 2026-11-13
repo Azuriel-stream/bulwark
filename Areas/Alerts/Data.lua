@@ -4,7 +4,8 @@ local ADDON_NAME, NS = ...
 -- isTaunt: always announced, even while threat is solid. tauntWithSeal: a taunt only while that seal is up
 -- (AbilityAlerts tracks the seal), otherwise a normal threat ability.
 -- Only abilities that exist on Forever (user, 2026-11-13). IDs checked with tools/gamedata.ps1, build 70938:
--- Hand of Reckoning / Righteous Defense (TBC+) and the Turtle-only Earthshaker Slam / Lightning Strike are gone.
+-- Hand of Reckoning / Righteous Defense (TBC+) are gone. No Shaman list: Shaman tanking isn't supported on Forever and
+-- has no taunt (user, 2026-11-13; kb/tanks/shaman.md). Shamans still get loss-of-control alerts and threat whispers.
 -- Paladin facts: kb/tanks/paladin.md.
 local Spells = {}
 NS.AlertSpells = Spells
@@ -25,11 +26,6 @@ Spells.Abilities = {
         -- Judgement doesn't consume the seal [data: 20271].
         ["Judgement"]   = { spellIDs = { 20271 }, tauntWithSeal = "FURY" },
         ["Holy Strike"] = { spellIDs = { 679, 678, 1866, 680, 2495, 5569, 10332, 10333 } },
-    },
-    SHAMAN = {
-        ["Earth Shock"] = { spellIDs = { 8042, 8044, 8045, 8046, 10412, 10413, 10414 } },
-        ["Frost Shock"] = { spellIDs = { 8056, 8058, 10472, 10473 } },
-        ["Stormstrike"] = { spellIDs = { 17364 } },
     },
 }
 
@@ -52,7 +48,6 @@ Spells.Order = {
     WARRIOR = { "Taunt", "Mocking Blow", "Sunder Armor", "Revenge", "Shield Slam" },
     DRUID = { "Growl" },
     PALADIN = { "Judgement", "Holy Strike" },
-    SHAMAN = { "Earth Shock", "Frost Shock", "Stormstrike" },
 }
 
 local byName, byID = {}, {}
