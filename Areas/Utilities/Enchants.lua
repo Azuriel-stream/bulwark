@@ -53,17 +53,29 @@ local function AddDelta(delta, stats, sign)
     delta.block = (delta.block or 0) + sign * (stats.block or 0)
 end
 
+-- Does block chance count for nothing in this character's ranking? True for a Warrior who knows Shield Block and
+-- wears a shield. Forever's Shield Block (2 blocks, 7 s, 5 s cooldown, off the GCD, paid back by Shield
+-- Specialization rage [data]) used on cooldown blocks almost every swing that isn't dodged, parried or missed, so
+-- 1 % base block is worth only 0-4 % of 1 % dodge [simulation, kb/addons/Bulwark-Utilities.md "Research: is there
+-- an avoidance breakpoint"]. Any weight above zero would still rank Shield - Lesser Block over a stamina enchant
+-- (stamina only breaks ties), so it counts as zero. Paladins keep it: Holy Shield (+30 %) doesn't fill the table.
+function Enchants.IgnoresBlock(snap)
+    return snap and snap.hasShield and snap.known and snap.known.shieldBlock and true or false
+end
+
 -- Total avoidance (%) and stamina gained by replacing currentID with enchantID. snap = Avoidance.Read() result;
--- opts = Avoidance.Compute options (attacker level offset).
+-- opts = Avoidance.Compute options (attacker level offset). Block chance is left out when IgnoresBlock(snap).
 function Enchants.Gain(snap, enchantID, currentID, opts)
     local new, cur = Enchants.Stats(enchantID), Enchants.Stats(currentID)
     local delta = {}
     AddDelta(delta, new, 1)
     AddDelta(delta, cur, -1)
     local Av = NS.Avoidance
-    local before = Av.Compute(snap, opts).total
-    local after = Av.Compute(Av.Apply(snap, delta), opts).total
-    return after - before, (new.sta or 0) - (cur.sta or 0)
+    local before = Av.Compute(snap, opts)
+    local after = Av.Compute(Av.Apply(snap, delta), opts)
+    local gain = after.total - before.total
+    if Enchants.IgnoresBlock(snap) then gain = gain - (after.raw.block - before.raw.block) end
+    return gain, (new.sta or 0) - (cur.sta or 0)
 end
 
 -- Enchants that fit the item in a slot, best avoidance gain first, then stamina. One entry per enchant:

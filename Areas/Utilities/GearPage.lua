@@ -179,6 +179,9 @@ local function ShowRowTooltip(row)
     else
         GameTooltip:AddLine(string.format(L["PICK_TIP_GAIN"], Gain(e.gain), e.stamina), 1, 1, 1, true)
     end
+    if (Enchants.Stats(e.enchant).block or 0) > 0 and Enchants.IgnoresBlock((Avoidance:Get())) then
+        GameTooltip:AddLine(L["PICK_TIP_NO_BLOCK"], C.muted[1], C.muted[2], C.muted[3], true)
+    end
     if src.minIlvl then GameTooltip:AddLine(string.format(L["PICK_TIP_ILVL"], src.minIlvl), C.muted[1], C.muted[2], C.muted[3], true) end
     if src.reqLevel then GameTooltip:AddLine(string.format(L["PICK_TIP_LEVEL"], src.reqLevel), C.muted[1], C.muted[2], C.muted[3], true) end
     AddMats(src)
@@ -190,6 +193,7 @@ end
 
 local function PickerRow(page, parent, i)
     local row = CreateFrame("Button", nil, parent)
+    row.isPickRow = true
     row:SetHeight(ROW_H)
     row:SetPoint("TOPLEFT", 10, -54 - (i - 1) * ROW_H)
     row:SetPoint("RIGHT", parent, "RIGHT", -10, 0)
@@ -403,7 +407,12 @@ NS:AddPage("utilities", {
             pending = true
             C_Timer.After(0.2, function()
                 pending = false
-                if page.frame and page.frame:IsShown() then page:refresh() end
+                if page.frame and page.frame:IsShown() then
+                    page:refresh()
+                    -- A mat name loads after the tooltip was drawn ("#11176"): redraw it (GET_ITEM_INFO_RECEIVED).
+                    local owner = GameTooltip:GetOwner()
+                    if owner and owner.isPickRow and owner.entry and owner:IsVisible() then ShowRowTooltip(owner) end
+                end
             end)
         end
         local events = CreateFrame("Frame")

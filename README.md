@@ -111,7 +111,9 @@ these values, so the pages keep the last ones).
 - **Stat values:** how much total avoidance one point of each stat gives you, and how many points make 1 %.
 - **Gear:** an enchant check for each gear set saved in the game's Equipment Manager (or what you wear, when it
   matches no saved set). Red slot: no enchant. Yellow slot: another enchant adds more total avoidance.
-  **Suggestions are ranked by avoidance gain, not Best-in-Slot**; stamina is shown second. Give each set a purpose:
+  **Suggestions are ranked by avoidance gain, not Best-in-Slot**; stamina is shown second. For a Warrior with
+  Shield Block and a shield, block chance doesn't count: used on cooldown, Shield Block already blocks almost every
+  swing that isn't dodged or parried. Give each set a purpose:
   Avoidance (missing and weaker enchants), Threat (missing only; use it for high-stamina sets too), Resistance
   (missing only, resistance enchants count as correct) or Don't check. Hover a slot for the reason;
   right-click marks a slot as intentional for that set; left-click lists the enchants that fit, with their mats.

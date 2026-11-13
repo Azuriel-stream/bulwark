@@ -50,6 +50,21 @@ return function(sim, t)
     near(E.Gain(s, 863, nil, { offset = 3 }), 2, "Shield - Lesser Block: 2 % with a shield")
     near(E.Gain(snap({ hasShield = false }), 863, nil, { offset = 3 }), 0, "no shield: block counts for nothing")
 
+    -- Warrior with Shield Block: block chance doesn't count (Shield Block fills the table on cooldown)
+    local war = snap({ known = { shieldBlock = true } })
+    t.ok(E.IgnoresBlock(war), "Warrior with Shield Block and a shield ignores block")
+    t.ok(not E.IgnoresBlock(snap({ known = { shieldBlock = true }, hasShield = false })), "no shield: rule off")
+    t.ok(not E.IgnoresBlock(snap({ known = { holyShield = true } })), "Paladin keeps block")
+    t.ok(not E.IgnoresBlock(nil), "no snapshot")
+    near(E.Gain(war, 863, nil, { offset = 3 }), 0, "Warrior: Shield - Lesser Block adds nothing")
+    near(E.Gain(war, 923, nil, { offset = 3 }), 0.84, "Warrior: Deflection = miss, dodge, parry only (7 x 0.12)")
+    near(E.Gain(war, 2622, nil, { offset = 3 }), 1, "Warrior: Cloak - Dodge unchanged")
+    near(E.Gain(snap({ known = { shieldBlock = true }, active = { shieldBlock = true }, block = 89 }), 863, nil,
+        { offset = 3 }), 0, "Warrior with Shield Block up: still nothing")
+    local sh = E.ForSlot(war, OFFHAND, shield, nil, { offset = 3 })
+    t.ok(sh[1].enchant ~= 863 and sh[1].stamina > 0, "Warrior shield: a stamina enchant ranks above Lesser Block")
+    t.eq((E.ForSlot(s, OFFHAND, shield, nil, { offset = 3 }))[1].enchant, 863, "Paladin/no Shield Block: Lesser Block first")
+
     -- Ranking: wrist, best first; stamina breaks ties among zero-avoidance enchants
     local list = E.ForSlot(s, WRIST, armor, nil, { offset = 3 })
     t.eq(list[1].enchant, 8214, "wrist: Superior Deflection first")
