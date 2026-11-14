@@ -17,7 +17,7 @@ local PENDING_TTL = 10         -- an echo later than this is ignored
 local seq, lastSend = 0, -math.huge
 local retryQueued = false
 local inEncounter = false
-local markEpoch = 0            -- +1 on every mark change: marks learned before it may be out of date
+local markEpoch = 0            -- +1 on every mark change: worth asking the current target again
 local pending = {}             -- [n] = { rec, epoch, at }
 
 -- =========================================================================
@@ -51,26 +51,61 @@ function Learn.NameOf(rec)
     return rec.name or rec.learnedName or rec.dataName
 end
 
--- The mark learned for a record, if no mark changed since (nil = unknown, 0 = none).
-function Learn.MarkOf(rec)
-    if rec.learnedEpoch == markEpoch then return rec.learnedIcon end
+-- =========================================================================
+-- Who wears which icon. Two sources, the newest wins: icons our keys put on a plate (Planner.placed/placedAt, from
+-- SetRaidTarget) and marks learned from the echo (anyone's, Learn.claims). A unit wears one icon, an icon sits on
+-- one unit. Learned marks outlive later mark changes (marking the rest of the pack mustn't forget someone else's
+-- skull) but are only used while still plausible: the icon is still in use and the mob's plate still shows an icon.
+-- A swap between two marked mobs by someone else stays unseen until you target one of them again.
+-- =========================================================================
+Learn.claims = {}   -- [icon] = { rec = plate record, at = GetTime() } latest learned claim per icon
+
+-- A mob was seen wearing `icon` (0 = none) at `at`: it no longer wears any other icon we thought it did.
+function Learn.Claim(rec, icon, at)
+    for i, c in pairs(Learn.claims) do
+        if c.rec == rec then Learn.claims[i] = nil end
+    end
+    if icon and icon > 0 then Learn.claims[icon] = { rec = rec, at = at } end
+end
+
+-- Our key just put `icon` on `rec` (Planner's SetRaidTarget hook): older learned claims for either are void.
+function Learn.Superseded(rec, icon)
+    if rec then Learn.Claim(rec, 0) end
+    if icon and icon > 0 then Learn.claims[icon] = nil end
+end
+
+-- The newest known wearer of an icon: rec (alive or dead), false (ours, on a unit without a plate) or nil; and
+-- "ours" or "learned".
+function Learn.Wearer(icon)
+    local P = MK.Planner
+    local placed, claim = P.placed[icon], Learn.claims[icon]
+    if placed ~= nil and not (claim and claim.at > (P.placedAt[icon] or 0)) then return placed, "ours" end
+    if claim then return claim.rec, "learned" end
     return nil
 end
 
--- The living mob wearing each icon, as far as this client knows: icons our keys put on a plate (Planner.placed,
--- exact and current), then marks learned from the echo (anyone's marks, current since the last mark change).
+-- Whether some unit wears the icon (readable, [in-game] run 3). Unknown counts as in use (never rules one out).
+local function IconInUse(icon)
+    local ok, nextFree = pcall(GetNextAvailableRaidTargetMarkerIndex, icon, false, false, true)
+    if not ok or Utils.IsSecret(nextFree) or type(nextFree) ~= "number" then return true end
+    return nextFree ~= icon
+end
+
+-- The living mob wearing each icon: [icon] = rec. A mob claimed for two icons counts for its newest only.
 function Learn.MobsByIcon()
-    local Plates, byIcon, taken = MK.Plates, {}, {}
-    for icon, rec in pairs(MK.Planner.placed) do
-        if rec and not rec.dead and Plates.records[rec.token] == rec then
-            byIcon[icon], taken[rec] = rec, true
+    local Plates, P, list = MK.Plates, MK.Planner, {}
+    for icon = 1, 8 do
+        local rec, kind = Learn.Wearer(icon)
+        if rec and not rec.dead and Plates.records[rec.token] == rec and Plates:IsMarked(rec.token)
+            and IconInUse(icon) then
+            local at = (kind == "ours") and (P.placedAt[icon] or 0) or Learn.claims[icon].at
+            table.insert(list, { icon = icon, rec = rec, at = at })
         end
     end
-    for _, rec in pairs(Plates.records) do
-        local icon = Learn.MarkOf(rec)
-        if icon and icon > 0 and not byIcon[icon] and not taken[rec] and not rec.dead then
-            byIcon[icon], taken[rec] = rec, true
-        end
+    table.sort(list, function(a, b) return a.at > b.at end)
+    local byIcon, used = {}, {}
+    for _, c in ipairs(list) do
+        if not used[c.rec] then byIcon[c.icon], used[c.rec] = c.rec, true end
     end
     return byIcon
 end
@@ -121,6 +156,7 @@ local function OnEcho(text)
     if GetTime() - entry.at > PENDING_TTL or MK.Plates.records[rec.token] ~= rec then return end   -- plate gone/reused
     if not name then return end
     rec.learnedName, rec.learnedIcon, rec.learnedEpoch = name, icon, entry.epoch
+    Learn.Claim(rec, icon, entry.at)   -- the time it was asked: a mark change after that is newer
     MK:Debug("learn: %s = %s%s", rec.token, name, icon > 0 and (" (mark " .. icon .. ")") or "")
     MK:Fire("MOB_LEARNED", rec)
 end

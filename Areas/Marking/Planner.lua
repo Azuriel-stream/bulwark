@@ -154,6 +154,7 @@ end
 -- corpse any more [in-game 2026-10-16: skull stuck after a kill]. An icon we saw go on a mob that died is free.
 -- Marks set by other group members don't pass here; theirs stay reserved.
 Planner.placed = {}
+Planner.placedAt = {}   -- [icon] = GetTime() of our SetRaidTarget: our mark vs a learned one, the newer wins
 
 local function OnSetRaidTarget(unit, icon)
     if Utils.IsSecret(unit) or Utils.IsSecret(icon) or type(icon) ~= "number" then return end
@@ -161,11 +162,13 @@ local function OnSetRaidTarget(unit, icon)
     rec = ok and rec or nil
     if icon == 0 then
         for i, r in pairs(Planner.placed) do
-            if r == rec then Planner.placed[i] = nil end
+            if r == rec then Planner.placed[i], Planner.placedAt[i] = nil, nil end
         end
     elseif icon >= 1 and icon <= 8 then
         Planner.placed[icon] = rec or false   -- false: not a mob with a plate (a player, a far unit): never freed here
+        Planner.placedAt[icon] = GetTime()
     end
+    if MK.Learn then MK.Learn.Superseded(rec, icon) end
     MK:Debug("mark %d on %s (%s)", icon, tostring(unit), rec and "plate known" or "no plate")
 end
 
@@ -177,8 +180,10 @@ function Planner.MarkOf(rec)
     return nil
 end
 
+-- The icon's newest known wearer (our mark, or one learned from the %t echo: anyone's) is dead. In a group this
+-- frees an icon someone else put on a mob that died out of range, which the client keeps "taken".
 local function PlacedOnCorpse(icon)
-    local rec = Planner.placed[icon]
+    local rec = MK.Learn.Wearer(icon)
     return rec and rec.dead or false
 end
 
@@ -193,7 +198,7 @@ local function SoloStale(taken)
         if not rec.dead and not rec.player and Plates:IsMarked(token) then onPlates = onPlates + 1 end
     end
     for icon in pairs(taken) do
-        local rec = Planner.placed[icon]
+        local rec = MK.Learn.Wearer(icon)
         if rec and not rec.dead and Plates.records[rec.token] == rec then known[icon] = true end
     end
     local nKnown = 0
@@ -308,10 +313,12 @@ function Planner:Report()
     local follow = MK.Team:FollowIcons()
     for icon = 8, 1, -1 do
         if plan.reserved and plan.reserved[icon] then
-            local placed, why = Planner.placed[icon], nil
+            local wearer, kind = MK.Learn.Wearer(icon)
+            local why
             if follow[icon] then why = L["WORN_FOLLOW"]
-            elseif placed == nil then why = L["WORN_NOT_OURS"]
-            elseif placed == false then why = L["WORN_NO_PLATE"]
+            elseif wearer == nil then why = L["WORN_NOT_OURS"]
+            elseif wearer == false then why = L["WORN_NO_PLATE"]
+            elseif kind == "learned" then why = string.format(L["WORN_LEARNED"], Planner.Describe(wearer))
             else why = L["WORN_ALIVE"] end
             print(string.format("    %s %s", Utils.IconText(icon), why))
         end
@@ -326,5 +333,9 @@ function Planner:OnInitialize()
     MK:On("PLATES_CHANGED", function() Planner:Rebuild() end)
     MK:On("MOB_LEARNED", function() MK.Plates.Changed() end)   -- a name entry may now apply to that plate
     if SetRaidTarget then hooksecurefunc("SetRaidTarget", OnSetRaidTarget) end
-    if RemoveRaidTargets then hooksecurefunc("RemoveRaidTargets", function() wipe(Planner.placed) end) end
+    if RemoveRaidTargets then
+        hooksecurefunc("RemoveRaidTargets", function()
+            wipe(Planner.placed); wipe(Planner.placedAt); wipe(MK.Learn.claims)
+        end)
+    end
 end

@@ -95,7 +95,9 @@ themselves, so marking always happens on a key press (bind the keys under Keybin
 - **Mob names in dungeons:** the game hides mob names and marks from addons inside dungeons. When you target a mob,
   Bulwark sends you a hidden whisper with `%t`; the game fills in the mob's name and mark, so Bulwark learns them.
   You never see these whispers. Tab through a pack before announcing. Not during boss fights (the game blocks it).
-  After each fight, the game's damage meter also tells Bulwark which mobs you fought.
+  After each fight, the game's damage meter also tells Bulwark which mobs you fought. Marks other players put on
+  are learned the same way: the announcement names those mobs too, `/bwk mark plan` shows who wears an icon, and an
+  icon on a mob Bulwark saw die is reused even when its corpse is out of range.
 - **Mobs page:** what Bulwark learned per zone (priority, type, fixed icon, CC class), page by page. In dungeons,
   each mob gets its own entry under its real name once Bulwark learns it, starting with the settings of the body
   entry it matched ("Searing Blade Cultist +2"); existing entries are never changed, and body entries stay as the

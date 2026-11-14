@@ -61,7 +61,7 @@ return function(_, t)
     Target("nameplate2")
     t.eq(#sim.chat, count, "known mob, marks unchanged: no whisper")
     sim:Fire("RAID_TARGET_UPDATE")
-    t.eq(Learn.MarkOf(rec2), nil, "a mark change makes learned marks unknown")
+    t.ok(Learn.claims[4] and Learn.claims[4].rec == rec2, "a mark change doesn't erase what was learned")
     sim:Advance(1)
     t.eq(#sim.chat, count + 1, "after a mark change the current target is asked again")
 
@@ -117,7 +117,8 @@ return function(_, t)
     sim:Advance(1)
     local m = tonumber(LastChat().msg:match("^BWK~(%d+)~"))
     sim:Fire("CHAT_MSG_WHISPER_INFORM", "BWK~" .. m .. "~{rt4}Ragefire Shaman", "Tankard Stoneforge")
-    Planner.placed[8] = rec1
+    sim.units.nameplate2.raidTarget = 4    -- the triangle really is on the shaman (someone else's mark)
+    env.SetRaidTarget("nameplate1", 8)     -- our key: skull on the trogg
     rows[1].player = "Tankard Stoneforge"
     local lines = Team:BuildAnnouncement()
     t.eq(lines[1], "[Bulwark] Kill order: {rt8} Ragefire Trogg (Tankard) > {rt4} Ragefire Shaman", "kill line names the pack")
@@ -128,8 +129,8 @@ return function(_, t)
     t.eq(lines[2], "[Bulwark] CC: {rt4} Ragefire Shaman: Lumen (Polymorph)", "CC line names the mob")
     rows[5].role, rows[5].player = "TANK", nil
 
-    -- No known mob on any kill icon: the old full list.
-    Planner.placed[8] = nil
+    -- No known mob on any kill icon (marks gone): the old full list.
+    sim.units.nameplate1.raidTarget, sim.units.nameplate2.raidTarget = nil, nil
     sim:Fire("RAID_TARGET_UPDATE")
     lines = Team:BuildAnnouncement()
     t.eq(lines[1], "[Bulwark] Kill order: {rt8} Tankard > {rt7} > {rt6} > {rt5} > {rt4} > {rt3} > {rt2} > {rt1}",
@@ -141,7 +142,7 @@ return function(_, t)
         sim.units[token] = { name = "x", friendly = false, level = 15, tier = "elite" }
         sim:Fire("NAME_PLATE_UNIT_ADDED", token)
         Plates.records[token].learnedName = "A Very Long Dungeon Mob Name Number " .. i
-        Planner.placed[i] = Plates.records[token]
+        env.SetRaidTarget(token, i)
     end
     lines = Team:BuildAnnouncement()
     t.ok(#lines >= 2, "8 long names need more than one line")
