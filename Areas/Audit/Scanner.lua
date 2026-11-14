@@ -15,7 +15,6 @@ local function cfg() return NS.db.audit end
 
 -- plan.tiles = ordered items: { tileKey, key, label, spellId, messageKey, provider, subgroupOnly, watchIds, ids, warn, expiresAt,
 --                               action = { type = "spell"|"request"|"bags", spell, unit } }
--- plan.salvation = show the Salvation (cancel) slot
 -- plan.dispelActions = { [dispelType] = action } for the debuff tiles to show
 Scanner.plan = { tiles = {} }
 
@@ -269,7 +268,6 @@ function Scanner:BuildPlan(helpful)
 
     return {
         tiles = tiles,
-        salvation = c.checkUnwanted,
         dispelActions = c.checkDebuffs and DispelActions(class, Roster) or {},
     }
 end

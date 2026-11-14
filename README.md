@@ -71,12 +71,12 @@ all good. Each tile shows the live buff and timer even in combat.
   included, has its own lines (Audit > Checks > Messages; off = plain lines).
 - **Consumables:** Well Fed and the weapon buff, optionally an elixir or a flask; click to open your bags.
 - **Healthstone:** when a warlock is in the group and you carry none.
-- **Debuffs:** one tile per debuff type you or your group can remove; click to dispel yourself or ask.
-- **Blessing of Salvation:** right-click to cancel it, in combat too.
+- **Debuffs:** one tile per debuff type you or your group can remove; click to dispel yourself or ask. They sit in
+  their own row: keep it near your character and the buff tiles somewhere else, each with its own size.
 - **Gear:** defense skill not maxed (in a group), tanking without a shield, low durability.
 
-Pages: Checks, Blessings (priority per tank class), Tiles (lock, size, position), Sound, Tools. While the window
-shows the Audit tab, every tile is shown as a preview.
+Pages: Checks, Blessings (priority per tank class), Tiles (lock, sizes, positions), Sound, Tools. While the window
+shows the Audit tab, every tile is shown as a preview. Both rows can also be moved in Blizzard's HUD Edit Mode.
 
 ## Marking
 

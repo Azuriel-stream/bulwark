@@ -1,5 +1,6 @@
--- Blizzard's HUD Edit Mode (UI/EditMode.lua): the Audit tiles and the Marks HUD get a box there; moves wait for
--- Blizzard's Save, Revert All Changes puts them back, leaving with unsaved moves asks Keep / Discard.
+-- Blizzard's HUD Edit Mode (UI/EditMode.lua): the Audit buff tiles, the debuff row and the Marks HUD get a box there;
+-- moves wait for Blizzard's Save, Revert All Changes puts them back, leaving with unsaved moves asks Keep / Discard.
+-- Also: the debuff row's own position and size (linked above the buff tiles until moved).
 local A = require("audit_helpers")
 local M = require("mark_helpers")
 
@@ -108,13 +109,14 @@ return function(_, t)
     -- Entering Edit Mode: a box over each frame, every Audit tile previewed.
     f:TestEnter()
     Boxes()
-    local auditBox, hudBox = boxes["Bulwark Audit"], boxes["Bulwark Marks"]
-    t.ok(auditBox and auditBox:IsShown(), "Audit box shown in Edit Mode")
+    local auditBox, debuffBox, hudBox = boxes["Bulwark Buffs"], boxes["Bulwark Debuffs"], boxes["Bulwark Marks"]
+    t.ok(auditBox and auditBox:IsShown(), "buff tiles box shown in Edit Mode")
+    t.ok(debuffBox and debuffBox:IsShown(), "debuff row box shown in Edit Mode")
     t.ok(hudBox and hudBox:IsShown(), "HUD box shown in Edit Mode")
     t.ok(Previewing(), "every Audit tile previewed in Edit Mode")
     t.ok(not f.SaveChangesButton:IsEnabled(), "Save greyed out before any move")
 
-    -- The box covers exactly the tiles on screen (both rows), not the anchor's fixed size.
+    -- The box covers exactly the buff tiles on screen, not the anchor's fixed size.
     local left, right, top = math.huge, -math.huge, -math.huge
     local function Cover(frame)
         local _, _, _, cx, cy = frame:GetPoint()
@@ -124,11 +126,24 @@ return function(_, t)
     for _, tile in ipairs(Bar:GetTiles()) do
         if tile:IsShown() and tile:GetAlpha() > 0 then Cover(tile); n = n + 1 end
     end
-    Cover(Bar:GetSalvationHolder())
     t.ok(n > 10, "many tiles previewed (" .. n .. ")")
     t.eq(string.format("%s / %s", boundsPoints.TOPLEFT, boundsPoints.BOTTOMRIGHT),
-        string.format("%s %s / %s %s", left, top, right, -16), "bounds fit the tiles (both rows)")
+        string.format("%s %s / %s %s", left, top, right, -16), "bounds fit the buff tiles")
     t.eq(right - left, n * 32 + (n - 1) * 4, "as wide as the tile row")
+
+    -- The debuff row: its own frame, linked just above the buff tiles until moved.
+    local debuffs = Bar:GetDebuffAnchor()
+    local dp, drel, _, dx, dy = debuffs:GetPoint()
+    t.ok(dp == "CENTER" and drel == anchor and dx == 0 and dy == 48, "debuff row sits above the buff tiles")
+    local shownTypes = 0
+    for _, dtype in ipairs({ "Magic", "Curse", "Poison", "Disease" }) do
+        local holder = Bar:GetDebuffTile(dtype)
+        if holder:IsShown() then
+            shownTypes = shownTypes + 1
+            t.eq(holder:GetParent(), debuffs, dtype .. " tile belongs to the debuff row")
+        end
+    end
+    t.ok(shownTypes > 0, "debuff tiles previewed (" .. shownTypes .. ")")
 
     -- Edit Mode hides without exiting while some panels are open: our boxes hide with it.
     f:Hide()
@@ -172,15 +187,42 @@ return function(_, t)
     t.ok(p and p.x == 300 and p.y == 700, "Keep saves the HUD position")
     t.ok(not prompt:IsShown(), "prompt closes")
 
+    -- Move the debuff row on its own: saved against the screen, the buff tiles stay put.
+    f:TestEnter()
+    rawset(debuffs, "GetCenter", function() return 900, 400 end)
+    Drag(debuffBox)
+    f:TestSave()
+    t.eq(table.concat(env.BulwarkDB.audit.debuffPoint, " "), "CENTER BOTTOMLEFT 900 400", "debuff row position saved")
+    dp, drel, _, dx, dy = debuffs:GetPoint()
+    t.ok(dp == "CENTER" and drel == env.UIParent and dx == 900 and dy == 400, "debuff row on its own spot")
+    t.eq(AuditPoint(), "CENTER CENTER 100 -50", "buff tiles unchanged")
+    f:TestExit()
+
+    -- Separate sizes
+    Bar:SetDebuffScale(1.5)
+    t.eq(debuffs:GetScale(), 1.5, "debuff row size")
+    t.eq(anchor:GetScale(), 1, "buff tiles keep theirs")
+    t.eq(env.BulwarkDB.audit.debuffScale, 1.5, "debuff size saved")
+
+    -- Reset: both back to the defaults, the debuff row linked above the buff tiles again (gap scaled per row)
+    Bar:ResetPosition()
+    t.eq(env.BulwarkDB.audit.debuffPoint, nil, "debuff position cleared")
+    dp, drel, _, dx, dy = debuffs:GetPoint()
+    t.ok(dp == "CENTER" and drel == anchor and math.abs(dy - (32 + 16 * 1.5) / 1.5) < 0.01, "linked again")
+    Bar:SetDebuffScale(1)
+
     -- Discard: the Audit tiles go back to their saved position.
     f:TestEnter()
     Drag(auditBox, MoveAudit(-200, 0))
+    f:TestSave()
+    t.eq(AuditPoint(), "CENTER CENTER -200 0", "saved")
+    Drag(auditBox, MoveAudit(100, -50))
     f:TestExit()
     t.ok(prompt:IsShown(), "prompt again")
     prompt.discard:Click()
-    t.eq(AuditPoint(), "CENTER CENTER 100 -50", "Discard keeps the saved position")
+    t.eq(AuditPoint(), "CENTER CENTER -200 0", "Discard keeps the saved position")
     local point, _, _, x, y = anchor:GetPoint()
-    t.eq(string.format("%s %s %s", point, x, y), "CENTER 100 -50", "the tiles move back")
+    t.eq(string.format("%s %s %s", point, x, y), "CENTER -200 0", "the tiles move back")
 
     -- Combat: the tiles (secure buttons) refuse to move; the HUD (plain frame) still moves.
     f:TestEnter()
@@ -207,7 +249,18 @@ return function(_, t)
     t.ok(Previewing(), "unlocked bar keeps its preview after Edit Mode")
     Bar:SetLocked(true, true)
 
-    for _, line in ipairs(sim.output) do
-        t.ok(not line:find("Error in"), "no handler error: " .. line)
+    -- Saved before the split: the debuff row starts at the buff tiles' size
+    local old = t.fresh(function(s)
+        InstallEditMode(s)
+        A.Party(s)
+        s.env.BulwarkDB = { audit = { scale = 1.3, checkUnwanted = true } }
+    end)
+    t.eq(old.env.BulwarkDB.audit.debuffScale, 1.3, "debuff size starts at the old tile size")
+    t.eq(old.env.Bulwark.AuditBar:GetDebuffAnchor():GetScale(), 1.3, "and is applied")
+
+    for _, s in ipairs({ sim, old }) do
+        for _, line in ipairs(s.output) do
+            t.ok(not line:find("Error in"), "no handler error: " .. line)
+        end
     end
 end

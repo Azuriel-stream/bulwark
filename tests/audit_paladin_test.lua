@@ -27,12 +27,7 @@ return function(sim, t)
     t.ok(H.Find(p, "GROUP:SPIRIT"), "paladin (mana) still checks Divine Spirit")
     t.ok(not H.Find(p, "SELF:BATTLE_SHOUT"), "paladin has no Battle Shout self tile")
 
-    -- Salvation slot: Blizzard right-click cancel, filtered to Salvation (+ Greater)
     local Bar = p.env.Bulwark.AuditBar
-    local salv = H.Container(p, Bar:GetSalvationHolder())._slots.unwanted
-    t.ok(salv._options.candidateFilters.includeSpellIDs[1038], "Salvation slot includes Blessing of Salvation")
-    t.ok(salv._options.candidateFilters.includeSpellIDs[25895], "...and Greater Blessing of Salvation")
-    t.eq(salv._SetCancelAuraButtons.obj, "RightButtonUp", "right-click cancels")
 
     -- Own Cleanse covers Magic/Poison/Disease: clicking the debuff tile casts Cleanse on yourself (in combat too)
     for _, dtype in ipairs({ "Magic", "Poison", "Disease" }) do

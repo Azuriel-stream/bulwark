@@ -5,7 +5,7 @@ H.SPELLS = {
     [6673] = "Battle Shout", [71] = "Defensive Stance", [25780] = "Righteous Fury",
     [1243] = "Power Word: Fortitude", [14752] = "Divine Spirit", [20217] = "Blessing of Kings",
     [19740] = "Blessing of Might", [19977] = "Blessing of Light", [19742] = "Blessing of Wisdom",
-    [465] = "Devotion Aura", [1038] = "Blessing of Salvation", [4987] = "Cleanse", [1126] = "Mark of the Wild",
+    [465] = "Devotion Aura", [4987] = "Cleanse", [1126] = "Mark of the Wild",
 }
 
 -- Party: player + priest (party1) + paladin (party2)

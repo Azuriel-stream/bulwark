@@ -62,11 +62,6 @@ D.BLESSINGS = {
 -- Fixed tile order for blessing tiles (which ones show comes from the user's priority list)
 D.BLESSING_ORDER = { "KINGS", "MIGHT", "LIGHT", "WISDOM" }
 
--- Buffs a tank wants removed (shown as click-to-cancel).
-D.UNWANTED = {
-    { key = "SALVATION", ids = { 1038, 25895 } },
-}
-
 -- Consumables (in groups and/or solo: audit.consumablesInGroup / consumablesSolo)
 D.WELL_FED = { 19705, 19706, 19708, 19709, 19710, 19711, 24799, 24870, 25694, 25941,
                1225778, 1225779, 1225780, 1225782, 1248406, 1248420, 1248421, 1248422, 1248688,

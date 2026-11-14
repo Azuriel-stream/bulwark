@@ -142,9 +142,8 @@ return function(sim, t)
     t.eq(#w.chat, chatCount + 2, "thanks once the buff is recast")
     t.eq(w.chat[#w.chat].channel, "WHISPER", "the recast earns the whisper")
 
-    -- Top row: Salvation watch + one debuff tile per type the group can remove (priest: Magic/Disease, paladin: +Poison)
+    -- Debuff row: one tile per type the group can remove (priest: Magic/Disease, paladin: +Poison)
     local Bar = w.env.Bulwark.AuditBar
-    t.ok(Bar:GetSalvationHolder():IsShown(), "Salvation slot watched")
     for _, dtype in ipairs({ "Magic", "Disease", "Poison" }) do
         t.ok(Bar:GetDebuffTile(dtype):IsShown(), dtype .. " debuff tile shown")
     end

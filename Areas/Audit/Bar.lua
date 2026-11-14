@@ -5,7 +5,8 @@ local ADDON_NAME, NS = ...
 --   + our dimmed red "missing" art
 --   + a Blizzard aura slot on top (CustomAuraContainer) that draws the real icon, sweep and countdown (red near
 --     expiry) whenever the buff is up, live IN COMBAT, even though aura data is secret to addons.
--- Top row: Blizzard Salvation slot (right-click cancels, in combat too) + dispellable-debuff group.
+-- Debuff row: its own frame (own position and size, user 2026-11-14), one tile per dispellable debuff type. Until the
+-- player moves it, it sits just above the buff tiles, as it did when it was their top row.
 -- Rules learned in-game: build every Blizzard aura frame before PLAYER_LOGIN (layout lock), size aura-group frames
 -- yourself, register both click halves on secure buttons. Secure tiles can't be shown/moved in combat, so the
 -- layout is decided out of combat (Scanner plan) and frozen during fights; each tile stays live.
@@ -18,11 +19,10 @@ local ROW_GAP = 16
 local GROUP_WARN = 60
 local CONSUMABLE_WARN = 60
 
-local anchor, mover
-local bounds            -- covers the tiles on screen; the drag boxes (unlock mover, Edit Mode) follow it
+local anchor, mover, bounds                     -- buff tiles; bounds = what's on screen (the drag boxes follow it)
+local debuffAnchor, debuffMover, debuffBounds   -- debuff row, same idea
 local tiles = {}        -- creation order
 local tilesByKey = {}
-local salvationHolder
 local debuffTiles = {}  -- [dispelType] = holder (Blizzard slot + our click catcher)
 local built = false
 local pendingPlan = nil
@@ -40,21 +40,42 @@ end
 Bar.NeedsAttention = NeedsAttention
 
 local function ApplyPosition()
-    local p = NS.db.audit.point
+    local c = NS.db.audit
+    local p = c.point
     anchor:ClearAllPoints()
     anchor:SetPoint(p[1], UIParent, p[2], p[3], p[4])
-    anchor:SetScale(NS.db.audit.scale)
+    anchor:SetScale(c.scale)
+
+    local dp, ds = c.debuffPoint, c.debuffScale
+    debuffAnchor:SetScale(ds)
+    debuffAnchor:ClearAllPoints()
+    if dp then
+        debuffAnchor:SetPoint(dp[1], UIParent, dp[2], dp[3], dp[4])
+    else
+        -- Not moved yet: just above the buff tiles. The gap is in screen units; offsets are in our own (scaled) units.
+        local gap = (SIZE / 2 + ROW_GAP) * c.scale + (SIZE / 2) * ds
+        debuffAnchor:SetPoint("CENTER", anchor, "CENTER", 0, gap / ds)
+    end
 end
 
-local function ReadPosition()
-    local point, _, relativePoint, x, y = anchor:GetPoint(1)
+local function ReadPosition(frame)
+    local point, _, relativePoint, x, y = frame:GetPoint(1)
     if point then
         return { point, relativePoint, math.floor(x + 0.5), math.floor(y + 0.5) }
     end
 end
 
-local function SavePosition()
-    NS.db.audit.point = ReadPosition() or NS.db.audit.point
+-- The debuff row may still be anchored to the buff tiles: re-anchor it to the screen at its current center (so it no
+-- longer follows the buff tiles) and return that position.
+local function ReadDebuffPosition()
+    local x, y = debuffAnchor:GetCenter()
+    if type(x) == "number" and type(y) == "number" then
+        x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+        debuffAnchor:ClearAllPoints()
+        debuffAnchor:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+        return { "CENTER", "BOTTOMLEFT", x, y }
+    end
+    return ReadPosition(debuffAnchor)
 end
 
 -- Every tile this class could ever need (created once, at ADDON_LOADED)
@@ -227,35 +248,13 @@ local function CreateTile(def, index)
     return tile
 end
 
--- Top row: Salvation slot (Blizzard right-click cancel) + dispellable debuffs group
-local function CreateTopRow()
-    local y = SIZE + ROW_GAP
-    salvationHolder = CreateFrame("Frame", "Bulwark_SalvationHolder", anchor)
-    salvationHolder:SetSize(SIZE, SIZE)
-    salvationHolder:SetPoint("CENTER", anchor, "CENTER", -(SIZE / 2 + SPACING), y)
-    local ok, err = pcall(function()
-        local container = NewContainer(salvationHolder)
-        container:SetAllPoints(salvationHolder)
-        local ids = {}
-        for _, def in ipairs(D.UNWANTED) do
-            for _, id in ipairs(def.ids) do ids[id] = true end
-        end
-        local slot = container:AddAuraSlot("unwanted", "HELPFUL", { candidateFilters = { includeSpellIDs = ids } })
-        slot:SetAllPoints(salvationHolder)
-        slot:SetCancelAuraButtons("RightButtonUp")
-        StyleAuraFrame(slot, 0)
-        local tag = slot:CreateFontString(nil, "OVERLAY")
-        tag:SetFont("Fonts\\FRIZQT__.TTF", 8, "OUTLINE")
-        tag:SetPoint("BOTTOM", slot, "TOP", 0, 1)
-        tag:SetText("|cffFF2222" .. L["TAG_CANCEL"] .. "|r")
-    end)
-    if not ok then NS:Print("|cffFF4444Salvation display unavailable:|r %s", tostring(err)) end
-
+-- Debuff row: one tile per dispellable debuff type
+local function CreateDebuffRow()
     -- One tile per dispel type: Blizzard slot (that type's debuff, live in combat) UNDER our transparent secure
     -- button. Blizzard aura buttons swallow clicks, so ours sits on top: click = own dispel or ask the group.
     -- Mouse motion is passed through so Blizzard's debuff tooltip still works.
     for _, dtype in ipairs(D.DISPEL_ORDER) do
-        local holder = CreateFrame("Frame", "Bulwark_AuditDebuff" .. dtype, anchor)
+        local holder = CreateFrame("Frame", "Bulwark_AuditDebuff" .. dtype, debuffAnchor)
         holder:SetSize(SIZE, SIZE)
         -- Marks the clickable spot; shown only in preview (unlocked bar / options open), per the user's choice
         holder.bg = holder:CreateTexture(nil, "BACKGROUND")
@@ -299,27 +298,29 @@ local function CreateTopRow()
     end
 end
 
-local function CreateMover()
-    mover = CreateFrame("Frame", nil, anchor)
-    mover:SetPoint("TOPLEFT", bounds, "TOPLEFT", -6, 6)
-    mover:SetPoint("BOTTOMRIGHT", bounds, "BOTTOMRIGHT", 6, -6)
-    mover:SetFrameLevel(anchor:GetFrameLevel() + 30)
-    mover:EnableMouse(true)
-    mover:RegisterForDrag("LeftButton")
-    local bg = mover:CreateTexture(nil, "BACKGROUND")
+-- Green box over a row while the tiles are unlocked; onStop saves the new position.
+local function CreateMover(frame, area, text, onStop)
+    local m = CreateFrame("Frame", nil, frame)
+    m:SetPoint("TOPLEFT", area, "TOPLEFT", -6, 6)
+    m:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", 6, -6)
+    m:SetFrameLevel(frame:GetFrameLevel() + 30)
+    m:EnableMouse(true)
+    m:RegisterForDrag("LeftButton")
+    local bg = m:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
     bg:SetColorTexture(0, 1, 0.5, 0.25)
-    local text = mover:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    text:SetPoint("CENTER")
-    text:SetText(L["BAR_DRAG_HINT"])
-    mover:SetScript("OnDragStart", function()
-        if not InCombatLockdown() then anchor:StartMoving() end
+    local label = m:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("CENTER")
+    label:SetText(text)
+    m:SetScript("OnDragStart", function()
+        if not InCombatLockdown() then frame:StartMoving() end
     end)
-    mover:SetScript("OnDragStop", function()
-        anchor:StopMovingOrSizing()
-        SavePosition()
+    m:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+        onStop()
     end)
-    mover:SetShown(not NS.db.audit.locked)
+    m:SetShown(not NS.db.audit.locked)
+    return m
 end
 
 local function SetupTile(tile, item)
@@ -343,7 +344,7 @@ local function PreviewPlan()
     end
     local dispelActions = {}
     for _, dtype in ipairs(D.DISPEL_ORDER) do dispelActions[dtype] = { type = "request" } end
-    return { tiles = items, salvation = true, dispelActions = dispelActions }
+    return { tiles = items, dispelActions = dispelActions }
 end
 
 -- Show and arrange tiles for a plan (out of combat only; in combat the plan waits)
@@ -375,12 +376,6 @@ function Bar:Apply(plan)
         end
     end
 
-    -- Bounds of what's on screen (offsets from the anchor's center), for the drag boxes
-    local minX, maxX, minY, maxY
-    local function Include(cx, cy)
-        minX, maxX = math.min(minX or cx, cx - SIZE / 2), math.max(maxX or cx, cx + SIZE / 2)
-        minY, maxY = math.min(minY or cy, cy - SIZE / 2), math.max(maxY or cy, cy + SIZE / 2)
-    end
 
     local shown = {}
     local x = -((#attention * SIZE) + ((#attention - 1) * SPACING)) / 2 + SIZE / 2
@@ -391,7 +386,6 @@ function Bar:Apply(plan)
         entry.tile:SetAlpha(visible and 1 or 0)
         entry.tile:EnableMouse(visible)
         entry.tile:Show()
-        if visible then Include(x, 0) end
         shown[entry.tile] = true
         x = x + SIZE + SPACING
     end
@@ -404,10 +398,12 @@ function Bar:Apply(plan)
         end
     end
 
-    -- Top row: Salvation left of center, debuff tiles (types someone can remove) to the right
-    salvationHolder:SetShown(plan.salvation and true or false)
-    if plan.salvation then Include(-(SIZE / 2 + SPACING), SIZE + ROW_GAP) end
-    local dx = SPACING / 2 + SIZE / 2
+    -- Debuff row: a tile per type someone can remove, centered on its own frame
+    local types = {}
+    for _, dtype in ipairs(D.DISPEL_ORDER) do
+        if plan.dispelActions and plan.dispelActions[dtype] then types[#types + 1] = dtype end
+    end
+    local dx = -((#types * SIZE) + ((#types - 1) * SPACING)) / 2 + SIZE / 2
     for _, dtype in ipairs(D.DISPEL_ORDER) do
         local holder = debuffTiles[dtype]
         local action = plan.dispelActions and plan.dispelActions[dtype]
@@ -418,10 +414,9 @@ function Bar:Apply(plan)
             catcher:SetAttribute("spell", action.spell)
             catcher:SetAttribute("unit", action.unit)
             holder:ClearAllPoints()
-            holder:SetPoint("CENTER", anchor, "CENTER", dx, SIZE + ROW_GAP)
+            holder:SetPoint("CENTER", debuffAnchor, "CENTER", dx, 0)
             holder.bg:SetShown(preview)
             holder:Show()
-            Include(dx, SIZE + ROW_GAP)
             dx = dx + SIZE + SPACING
         else
             holder.bg:Hide()
@@ -429,10 +424,15 @@ function Bar:Apply(plan)
         end
     end
 
-    if not minX then Include(0, 0) end   -- nothing shown: one tile's worth at the center
-    bounds:ClearAllPoints()
-    bounds:SetPoint("TOPLEFT", anchor, "CENTER", minX, maxY)
-    bounds:SetPoint("BOTTOMRIGHT", anchor, "CENTER", maxX, minY)
+    -- Drag boxes cover what's on screen (one tile's worth at the center when a row is empty)
+    local function Fit(area, frame, n)
+        local half = n > 0 and ((n * SIZE) + ((n - 1) * SPACING)) / 2 or SIZE / 2
+        area:ClearAllPoints()
+        area:SetPoint("TOPLEFT", frame, "CENTER", -half, SIZE / 2)
+        area:SetPoint("BOTTOMRIGHT", frame, "CENTER", half, -SIZE / 2)
+    end
+    Fit(bounds, anchor, #attention)
+    Fit(debuffBounds, debuffAnchor, #types)
 end
 
 function Bar:SetPreview(enabled)
@@ -453,12 +453,14 @@ end
 function Bar:SetLocked(locked, quiet)
     NS.db.audit.locked = locked and true or false
     if mover then mover:SetShown(not locked and not editMode) end
+    if debuffMover then debuffMover:SetShown(not locked and not editMode) end
     if built then self:SetPreview(WantPreview()) end
     if not quiet then NS:Print(locked and L["BAR_LOCKED"] or L["BAR_UNLOCKED"]) end
 end
 
 function Bar:ResetPosition()
     NS.db.audit.point = NS.CopyTable(NS.DefaultConfig.audit.point)
+    NS.db.audit.debuffPoint = nil   -- back above the buff tiles
     if not built then return end
     if InCombatLockdown() then
         pendingLayout = true
@@ -472,7 +474,13 @@ end
 function Bar:SetScale(scale)
     NS.db.audit.scale = scale
     if InCombatLockdown() then pendingLayout = true return end
-    if anchor then anchor:SetScale(scale) end
+    if built then ApplyPosition() end   -- the debuff row's gap depends on both sizes
+end
+
+function Bar:SetDebuffScale(scale)
+    NS.db.audit.debuffScale = scale
+    if InCombatLockdown() then pendingLayout = true return end
+    if built then ApplyPosition() end
 end
 
 -- Visibility ticker: fades tiles in when they enter their warning window (or go missing), in combat too.
@@ -507,6 +515,7 @@ eventFrame:SetScript("OnEvent", function()
         pendingLayout = false
         ApplyPosition()
         anchor:SetShown(NS:IsAreaRunning("audit"))
+        debuffAnchor:SetShown(NS:IsAreaRunning("audit"))
     end
     if pendingPlan then Bar:Apply(pendingPlan) end
 end)
@@ -523,26 +532,41 @@ function Bar:OnInitialize()
         pcall(C_AddOns.LoadAddOn, "Blizzard_AuraContainer")
     end
 
-    anchor = CreateFrame("Frame", "Bulwark_AuditBar", UIParent)
-    anchor:SetSize(10 * (SIZE + SPACING), SIZE * 2 + ROW_GAP)
-    anchor:SetMovable(true)
-    anchor:SetClampedToScreen(true)
-    -- Our own saved position only: else a move discarded in Edit Mode could come back from layout-local.txt
-    if anchor.SetDontSavePosition then anchor:SetDontSavePosition(true) end
+    local function NewAnchor(name, width)
+        local f = CreateFrame("Frame", name, UIParent)
+        f:SetSize(width, SIZE)
+        f:SetMovable(true)
+        f:SetClampedToScreen(true)
+        -- Our own saved position only: else a move discarded in Edit Mode could come back from layout-local.txt
+        if f.SetDontSavePosition then f:SetDontSavePosition(true) end
+        -- Hidden until the Audit area starts (it may stay off, or wait while TankAuditForever is loaded).
+        f:Hide()
+        return f
+    end
+    anchor = NewAnchor("Bulwark_AuditBar", 10 * (SIZE + SPACING))
+    debuffAnchor = NewAnchor("Bulwark_AuditDebuffs", 4 * (SIZE + SPACING))
+    -- Saved before the split: the debuff row starts at the buff tiles' size
+    if type(NS.db.audit.debuffScale) ~= "number" then NS.db.audit.debuffScale = NS.db.audit.scale end
     ApplyPosition()
-    -- Hidden until the Audit area starts (it may stay off, or wait while TankAuditForever is loaded).
-    anchor:Hide()
 
     for i, def in ipairs(TileDefs(class)) do
         local tile = CreateTile(def, i)
         tiles[#tiles + 1] = tile
         tilesByKey[def.tileKey] = tile
     end
-    CreateTopRow()
+    CreateDebuffRow()
     bounds = CreateFrame("Frame", nil, anchor)
-    bounds:SetPoint("TOPLEFT", anchor, "CENTER", -SIZE / 2, SIZE / 2)
-    bounds:SetPoint("BOTTOMRIGHT", anchor, "CENTER", SIZE / 2, -SIZE / 2)
-    CreateMover()
+    bounds:SetPoint("CENTER")
+    bounds:SetSize(SIZE, SIZE)
+    debuffBounds = CreateFrame("Frame", nil, debuffAnchor)
+    debuffBounds:SetPoint("CENTER")
+    debuffBounds:SetSize(SIZE, SIZE)
+    mover = CreateMover(anchor, bounds, L["BAR_DRAG_HINT"], function()
+        NS.db.audit.point = ReadPosition(anchor) or NS.db.audit.point
+    end)
+    debuffMover = CreateMover(debuffAnchor, debuffBounds, L["DEBUFF_DRAG_HINT"], function()
+        NS.db.audit.debuffPoint = ReadDebuffPosition() or NS.db.audit.debuffPoint
+    end)
     preview = not NS.db.audit.locked
     built = true
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -554,6 +578,7 @@ function Bar:OnEnable()
     preview = WantPreview()
     if InCombatLockdown() then pendingLayout = true return end
     anchor:Show()
+    debuffAnchor:Show()
 end
 
 function Bar:IsBuilt() return built end
@@ -564,34 +589,49 @@ function Bar:OnDisable()
     preview = false
     self:Apply({ tiles = {} })
     anchor:Hide()
+    debuffAnchor:Hide()
 end
 
--- Blizzard's HUD Edit Mode: a blue box over the tiles; moves wait for Blizzard's Save (UI/EditMode.lua).
+-- Blizzard's HUD Edit Mode: a blue box over each row; moves wait for Blizzard's Save (UI/EditMode.lua).
+local function EditModeChanged(on)
+    editMode = on
+    if not built then return end
+    local showMovers = not on and not NS.db.audit.locked
+    mover:SetShown(showMovers)
+    debuffMover:SetShown(showMovers)
+    if NS:IsAreaRunning("audit") and preview ~= WantPreview() then Bar:SetPreview(WantPreview()) end
+end
+
+local function RestorePositions()
+    if InCombatLockdown() then pendingLayout = true return end
+    ApplyPosition()
+end
+
+-- The rows hold secure buttons: they can't move in combat.
+local function OutOfCombat() return not InCombatLockdown() end
+
 NS.EditMode:Register({
-    label = L["EDITMODE_AUDIT"],
+    label = L["EDITMODE_BUFFS"],
     GetFrame = function() return anchor end,
     GetBounds = function() return bounds end,
     IsAvailable = function() return built and anchor:IsShown() end,
-    -- The tiles are secure buttons: their parent can't move in combat.
-    CanMove = function() return not InCombatLockdown() end,
-    Read = function() return ReadPosition() end,
+    CanMove = OutOfCombat,
+    Read = function() return ReadPosition(anchor) end,
     Save = function(pos) if pos then NS.db.audit.point = pos end end,
-    Restore = function()
-        if InCombatLockdown() then pendingLayout = true return end
-        ApplyPosition()
-    end,
-    OnEnter = function()
-        editMode = true
-        if not built then return end
-        mover:Hide()
-        if NS:IsAreaRunning("audit") and preview ~= WantPreview() then Bar:SetPreview(WantPreview()) end
-    end,
-    OnExit = function()
-        editMode = false
-        if not built then return end
-        mover:SetShown(not NS.db.audit.locked)
-        if NS:IsAreaRunning("audit") and preview ~= WantPreview() then Bar:SetPreview(WantPreview()) end
-    end,
+    Restore = RestorePositions,
+    OnEnter = function() EditModeChanged(true) end,
+    OnExit = function() EditModeChanged(false) end,
+})
+
+NS.EditMode:Register({
+    label = L["EDITMODE_DEBUFFS"],
+    GetFrame = function() return debuffAnchor end,
+    GetBounds = function() return debuffBounds end,
+    IsAvailable = function() return built and debuffAnchor:IsShown() end,
+    CanMove = OutOfCombat,
+    Read = ReadDebuffPosition,
+    Save = function(pos) if pos then NS.db.audit.debuffPoint = pos end end,
+    Restore = RestorePositions,
 })
 
 -- For SelfAlert, tests and /bwk audit status
@@ -599,5 +639,6 @@ function Bar:GetTile(tileKey) return tilesByKey[tileKey] end
 function Bar:GetTiles() return tiles end
 function Bar:GetAnchor() return anchor end
 function Bar:GetBounds() return bounds end
+function Bar:GetDebuffAnchor() return debuffAnchor end
+function Bar:GetDebuffBounds() return debuffBounds end
 function Bar:GetDebuffTile(dispelType) return debuffTiles[dispelType] end
-function Bar:GetSalvationHolder() return salvationHolder end

@@ -2,7 +2,7 @@ local ADDON_NAME, NS = ...
 local L, Kit, D, Utils = NS.L, NS.Kit, NS.AuditData, NS.Utils
 local C = Kit.C
 
--- Audit: pre-pull tiles for missing buffs, consumables, dispellable debuffs and unwanted buffs; buff requests and
+-- Audit: pre-pull tiles for missing buffs, consumables and dispellable debuffs; buff requests and
 -- thank-you whispers (from TankAuditForever). Warrior and Paladin tanks.
 local area = NS:RegisterArea({
     key = "audit",
@@ -25,7 +25,6 @@ NS.DefaultConfig.audit = {
     consumablesSolo = false,    -- check consumables when ungrouped (both on = always)
     checkHealthstone = true,
     checkDebuffs = true,
-    checkUnwanted = true,
     checkDefenseSkill = true,   -- tile: defense skill below the level cap (groups only)
     checkShield = true,         -- tile: tanking (Defensive Stance / Righteous Fury) without a shield
     checkDurability = true,     -- tile: an equipped item at or below durabilityWarn %
@@ -87,7 +86,6 @@ local CHECKS = {
     { key = "checkConsumables", text = "AUDIT_OPT_CONSUMABLES", col = 0 },
     { key = "checkHealthstone", text = "AUDIT_OPT_HEALTHSTONE", col = 1 },
     { key = "checkDebuffs", text = "AUDIT_OPT_DEBUFFS", col = 0 },
-    { key = "checkUnwanted", text = "AUDIT_OPT_UNWANTED", col = 1 },
 }
 
 NS:AddPage(area.key, {
@@ -267,15 +265,19 @@ NS:AddPage(area.key, {
         page.lock:SetPoint("TOPLEFT", 12, -38)
         local reset = Kit.Button(card, L["AUDIT_BTN_RESET"], 150, function() NS.AuditBar:ResetPosition() end)
         reset:SetPoint("TOPLEFT", 312, -40)
-        page.scale = Kit.Slider(card, L["AUDIT_OPT_SCALE"], 50, 200, 10,
-            function(v) return string.format("%d%%", v) end,
+        local function Percent(v) return string.format("%d%%", v) end
+        page.scale = Kit.Slider(card, L["AUDIT_OPT_SCALE"], 50, 200, 10, Percent,
             function(v) NS.AuditBar:SetScale(v / 100) end)
         page.scale:SetPoint("TOPLEFT", 12, -96)
+        page.debuffScale = Kit.Slider(card, L["AUDIT_OPT_DEBUFF_SCALE"], 50, 200, 10, Percent,
+            function(v) NS.AuditBar:SetDebuffScale(v / 100) end)
+        page.debuffScale:SetPoint("TOPLEFT", 312, -96)
         Note(parent, L["AUDIT_PREVIEW_NOTE"], 0, y - 148, 640)
     end,
     refresh = function(page)
         page.lock:SetChecked(cfg().locked)
         page.scale:SetValue(math.floor(cfg().scale * 100 + 0.5))
+        page.debuffScale:SetValue(math.floor((cfg().debuffScale or cfg().scale) * 100 + 0.5))
     end,
 })
 
@@ -311,8 +313,7 @@ local function PlanSummary()
     local types = {}
     for dtype, action in pairs(plan.dispelActions or {}) do types[#types + 1] = L[dtype] .. " (" .. L["AUDIT_ACTION_" .. action.type] .. ")" end
     table.sort(types)
-    return #names > 0 and table.concat(names, ", ") or "-", #types > 0 and table.concat(types, ", ") or "-",
-        plan.salvation and L["STATUS_ON"] or L["STATUS_OFF"]
+    return #names > 0 and table.concat(names, ", ") or "-", #types > 0 and table.concat(types, ", ") or "-"
 end
 
 NS:AddPage(area.key, {
@@ -335,8 +336,8 @@ NS:AddPage(area.key, {
         page.plan:SetPoint("TOPLEFT", 16, -42)
     end,
     refresh = function(page)
-        local tiles, types, salvation = PlanSummary()
-        page.plan:SetText(string.format(L["AUDIT_PLAN_TEXT"], tiles, types, salvation))
+        local tiles, types = PlanSummary()
+        page.plan:SetText(string.format(L["AUDIT_PLAN_TEXT"], tiles, types))
     end,
 })
 
@@ -391,12 +392,12 @@ function area.command(args)
     elseif cmd == "voice" then
         VoicePreview()
     elseif cmd == "status" then
-        local tiles, types, salvation = PlanSummary()
+        local tiles, types = PlanSummary()
         NS:Print("%s: %s", L["AREA_AUDIT"], NS:IsAreaRunning("audit") and L["STATUS_ON"] or L["STATUS_OFF"])
-        local text = string.format(L["AUDIT_PLAN_TEXT"], tiles, types, salvation):gsub("\n", "\n  ")
+        local text = string.format(L["AUDIT_PLAN_TEXT"], tiles, types):gsub("\n", "\n  ")
         print("  " .. text)
         print("  " .. string.format(L["AUDIT_STATUS_TILES"], cfg().locked and L["AUDIT_LOCKED"] or L["AUDIT_UNLOCKED"],
-            math.floor(cfg().scale * 100 + 0.5)))
+            math.floor(cfg().scale * 100 + 0.5), math.floor((cfg().debuffScale or cfg().scale) * 100 + 0.5)))
     else
         for _, line in ipairs(area.commandHelp) do print("  " .. line) end
     end

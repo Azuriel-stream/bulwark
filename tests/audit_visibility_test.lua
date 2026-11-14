@@ -25,8 +25,6 @@ return function(sim, t)
     t.ok(not fortTile.blizzardSlot:IsMouseEnabled(), "Blizzard's aura button ignores the mouse (no tooltip)")
     local weaponTile = H.Planned(w, "CONS:WEAPON_BUFF")
     t.ok(weaponTile and not weaponTile.blizzardSlot:IsMouseEnabled(), "weapon enchant button ignores the mouse too")
-    local salv = H.Container(w, w.env.Bulwark.AuditBar:GetSalvationHolder())._slots.unwanted
-    t.ok(salv:IsMouseEnabled(), "Salvation keeps its mouse (right-click cancel)")
     -- Right-click (hold to turn the character) goes through our tiles to the world, even over a transparent
     -- debuff click-catcher that keeps its mouse in combat; left-click still reaches the tile.
     local catcher = w.env.Bulwark_AuditDebuffClickMagic
