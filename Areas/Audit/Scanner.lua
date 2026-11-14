@@ -326,6 +326,10 @@ function Scanner:BuildPlan(helpful)
         end
     end
 
+    -- Resting (city or inn; user 2026-11-14): no buff, stance, consumable or healthstone tiles. Gear warnings and
+    -- the debuff row stay (town is where you repair).
+    if c.hideResting and IsResting() then tiles = {} end
+
     -- 5. Tank gear (user 2026-11-12: these warnings are Audit tiles). Prompts: shown while planned.
     for _, item in ipairs(Scanner.GearWarnings(c, solo, byId)) do tiles[#tiles + 1] = item end
 
@@ -406,7 +410,7 @@ function Scanner:OnEnable()
     frame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
     for _, event in ipairs({ "PLAYER_TARGET_CHANGED", "GROUP_ROSTER_UPDATE", "PLAYER_EQUIPMENT_CHANGED",
         "BAG_UPDATE_DELAYED", "SPELLS_CHANGED", "UPDATE_SHAPESHIFT_FORM", "PLAYER_REGEN_ENABLED",
-        "PLAYER_ENTERING_WORLD" }) do
+        "PLAYER_ENTERING_WORLD", "PLAYER_UPDATE_RESTING" }) do
         frame:RegisterEvent(event)
     end
     frame:SetScript("OnEvent", OnEvent)

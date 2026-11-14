@@ -74,8 +74,10 @@ all good. Each tile shows the live buff and timer even in combat.
 - **Debuffs:** one tile per debuff type you or your group can remove; click to dispel yourself or ask. They sit in
   their own row: keep it near your character and the buff tiles somewhere else, each with its own size.
 - **Gear:** defense skill not maxed (in a group), tanking without a shield, low durability.
+- **Resting:** in a city or an inn, buff and consumable tiles stay hidden; gear warnings and debuffs still show
+  (Audit > Tiles > Hide while resting, on by default).
 
-Pages: Checks, Blessings (priority per tank class), Tiles (lock, sizes, positions), Sound, Tools. While the window
+Pages: Checks, Blessings (priority per tank class), Tiles (lock, sizes, positions, hide while resting), Sound, Tools. While the window
 shows the Audit tab, every tile is shown as a preview. Both rows can also be moved in Blizzard's HUD Edit Mode.
 
 ## Marking

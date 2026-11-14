@@ -25,6 +25,7 @@ NS.DefaultConfig.audit = {
     consumablesSolo = false,    -- check consumables when ungrouped (both on = always)
     checkHealthstone = true,
     checkDebuffs = true,
+    hideResting = true,         -- no buff/consumable tiles in a city or inn (gear warnings and debuffs stay)
     checkDefenseSkill = true,   -- tile: defense skill below the level cap (groups only)
     checkShield = true,         -- tile: tanking (Defensive Stance / Righteous Fury) without a shield
     checkDurability = true,     -- tile: an equipped item at or below durabilityWarn %
@@ -259,7 +260,7 @@ NS:AddPage(area.key, {
     title = L["PAGE_TILES"],
     build = function(page, parent)
         local y = Header(parent, L["PAGE_TILES"], L["AUDIT_TILES_DESC"])
-        local card = Card(parent, L["AUDIT_CARD_TILES"], y, 136)
+        local card = Card(parent, L["AUDIT_CARD_TILES"], y, 174)
         page.lock = Kit.Checkbox(card, L["AUDIT_OPT_LOCK"], L["AUDIT_OPT_LOCK_DESC"], function(checked)
             NS.AuditBar:SetLocked(checked, true)
         end)
@@ -273,10 +274,17 @@ NS:AddPage(area.key, {
         page.debuffScale = Kit.Slider(card, L["AUDIT_OPT_DEBUFF_SCALE"], 50, 200, 10, Percent,
             function(v) NS.AuditBar:SetDebuffScale(v / 100) end)
         page.debuffScale:SetPoint("TOPLEFT", 312, -96)
-        Note(parent, L["AUDIT_PREVIEW_NOTE"], 0, y - 148, 640)
+        -- When tiles show (user 2026-11-14: belongs with the tiles, not with the checks)
+        page.hideResting = Kit.Checkbox(card, L["AUDIT_OPT_HIDE_RESTING"], L["AUDIT_OPT_HIDE_RESTING_DESC"], function(checked)
+            cfg().hideResting = checked
+            Rescan()
+        end)
+        page.hideResting:SetPoint("TOPLEFT", 12, -138)
+        Note(parent, L["AUDIT_PREVIEW_NOTE"], 0, y - 186, 640)
     end,
     refresh = function(page)
         page.lock:SetChecked(cfg().locked)
+        page.hideResting:SetChecked(cfg().hideResting)
         page.scale:SetValue(math.floor(cfg().scale * 100 + 0.5))
         page.debuffScale:SetValue(math.floor((cfg().debuffScale or cfg().scale) * 100 + 0.5))
     end,
