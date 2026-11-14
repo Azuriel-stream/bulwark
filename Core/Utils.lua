@@ -90,10 +90,20 @@ function Utils.SpellChatName(id, fallbackName)
 end
 
 -- Calls callback(aura) for each of the unit's auras (filter "HELPFUL"/"HARMFUL"). Returns false, and stops, as soon
--- as the data is secret (restricted: combat, encounters).
+-- as the data is secret (restricted: combat, encounters). Around combat start/end the aura restriction and
+-- InCombatLockdown() can disagree, and then the read throws instead of returning secrets [in-game 2026-11-08..12:
+-- "GetAuraDataByIndex(): Auras cannot be accessed when secret while tainted"]. So ask Blizzard first
+-- (C_Secrets.ShouldUnitAuraIndexBeSecret), and treat a throw as "secret" too.
 function Utils.ForEachAura(unit, filter, callback)
+    local secrets = C_Secrets
+    local ask = secrets and secrets.ShouldUnitAuraIndexBeSecret
     for index = 1, 255 do
-        local aura = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
+        if ask then
+            local okS, isSecret = pcall(ask, unit, index, filter)
+            if okS and not Utils.IsSecret(isSecret) and isSecret == true then return false end
+        end
+        local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, unit, index, filter)
+        if not ok then return false end
         if not aura then return true end
         if Utils.IsSecret(aura.spellId) then return false end
         callback(aura)

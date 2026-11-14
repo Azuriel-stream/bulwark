@@ -16,21 +16,26 @@ local function cfg() return NS.db.audit end
 -- Out of combat the aura is readable: learn the real duration and the exact expiry. Only your own copy counts: when
 -- another warrior's shout covers you, its refreshes are invisible to us in combat, so timing a warning from it would
 -- sound for nothing (user 2026-11-14: no alerts while someone else's buff covers you; the tile still shows its timer).
+-- Reads everything first and applies it only if every read worked: right at combat start/end the read can throw
+-- (auras restricted while InCombatLockdown() is still false; kb/gotchas.md#aura-boundary), and then the expiries
+-- we already know are kept instead of being wiped halfway.
 local function SyncFromAuras()
-    for _, e in ipairs(entries) do
-        e.expiresAt = nil
+    local found = {}
+    for i, e in ipairs(entries) do
         for _, id in ipairs(e.def.ids) do
-            local aura = C_UnitAuras.GetPlayerAuraBySpellID(id)
+            local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, id)
+            if not ok then return end
             if aura and not Utils.IsSecret(aura.expirationTime)
                 and (not e.def.strength or aura.sourceUnit == nil or NS.AuditScanner.OwnAura(aura)) then
                 if aura.duration and aura.duration > 0 then
                     cfg().watchDurations[id] = aura.duration
                 end
-                e.expiresAt = (aura.expirationTime and aura.expirationTime > 0) and aura.expirationTime or nil
+                found[i] = (aura.expirationTime and aura.expirationTime > 0) and aura.expirationTime or false
                 break
             end
         end
     end
+    for i, e in ipairs(entries) do e.expiresAt = found[i] or nil end
 end
 
 local function Tick()
