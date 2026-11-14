@@ -34,12 +34,10 @@ return function(_, t)
     t.eq(Team:GetLadder()[1], 7, "skull skipped while its tank is dead")
     sim.units.player.dead = false
 
-    -- Cycling a player walks the group, then back to none.
-    Team:CyclePlayer(8)
-    t.eq(rows[8].player, "Tankard Stoneforge", "first member")
-    Team:CyclePlayer(8)
-    t.eq(rows[8].player, "Lumen Brightwater", "second member")
-    Team:CyclePlayer(8)
+    -- Setting a player (from the dropdown), then back to none.
+    Team:SetPlayer(8, "Lumen Brightwater")
+    t.eq(rows[8].player, "Lumen Brightwater", "player set")
+    Team:SetPlayer(8, nil)
     t.eq(rows[8].player, nil, "back to anyone")
 
     -- Announcement in party chat.

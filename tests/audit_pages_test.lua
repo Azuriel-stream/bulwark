@@ -34,17 +34,24 @@ return function(sim, t)
     t.ok(not previewing(), "closing the window ends the preview")
     t.ok(not poison.bg:IsShown(), "debuff squares hidden after preview")
 
-    -- Checks page writes settings; consumables: at most one of + Elixir / + Flask.
+    -- Checks page writes settings; consumables: food only / + elixir / + flask from one dropdown.
+    local function pick(dd, key)
+        dd:Click()
+        for _, r in ipairs(sim.env.Bulwark_DropdownList.rows) do
+            if r:IsShown() and r.option.key == key then r:Click() return end
+        end
+    end
     checks = page("checks")
     checks.checks.checkHealthstone:Click()
     t.eq(cfg.checkHealthstone, false, "healthstone checkbox")
-    checks.consumables[2]:Click()
-    t.eq(cfg.consumableLevel, 2, "+ Elixir selected")
-    checks.consumables[3]:Click()
-    t.eq(cfg.consumableLevel, 3, "+ Flask selected")
-    t.ok(checks.consumables[3]:GetChecked() and not checks.consumables[2]:GetChecked(), "only one add-on checked")
-    checks.consumables[3]:Click()
-    t.eq(cfg.consumableLevel, 1, "unchecking it means food only")
+    t.eq(checks.consLevel:GetLabel(), "Food only", "food only by default")
+    pick(checks.consLevel, 2)
+    t.eq(cfg.consumableLevel, 2, "+ elixir selected")
+    pick(checks.consLevel, 3)
+    t.eq(cfg.consumableLevel, 3, "+ flask selected")
+    t.eq(checks.consLevel:GetLabel(), "Food + flask", "dropdown shows the choice")
+    pick(checks.consLevel, 1)
+    t.eq(cfg.consumableLevel, 1, "back to food only")
     -- Consumables when: In a group / Solo are independent (both = always)
     t.ok(checks.consumablesWhen.consumablesInGroup:GetChecked(), "In a group ticked by default")
     t.ok(not checks.consumablesWhen.consumablesSolo:GetChecked(), "Solo unticked by default")
@@ -58,28 +65,29 @@ return function(sim, t)
     -- Consumables off: its card's options grey out (unclickable, dim label) and keep their values
     local function cardActive(on)
         for _, cb in pairs(checks.consumablesWhen) do if cb:IsEnabled() ~= on then return false end end
-        for _, cb in pairs(checks.consumables) do if cb:IsEnabled() ~= on then return false end end
+        if checks.consLevel:IsEnabled() ~= on then return false end
         return true
     end
     t.ok(cardActive(true), "Consumables on: card options active")
     local white = { checks.consumablesWhen.consumablesSolo.Text:GetTextColor() }
-    checks.consumables[2]:Click()                    -- + Elixir, to see it survive the greying
+    pick(checks.consLevel, 2)                        -- + elixir, to see it survive the greying
     checks.checks.checkConsumables:Click()
     t.eq(cfg.checkConsumables, false, "Consumables unticked")
     t.ok(cardActive(false), "Consumables off: all card options greyed out")
     t.ok(select(1, checks.consumablesWhen.consumablesSolo.Text:GetTextColor()) < white[1], "greyed label is dimmer")
     checks.consumablesWhen.consumablesSolo:Click()
-    checks.consumables[3]:Click()
+    checks.consLevel:Click()
+    t.ok(not sim.env.Bulwark.Kit.IsListOpen(), "greyed dropdown doesn't open")
     t.eq(cfg.consumablesSolo, false, "greyed Solo can't be clicked")
-    t.eq(cfg.consumableLevel, 2, "greyed + Flask can't be clicked; + Elixir kept")
-    t.ok(checks.consumables[2]:GetChecked(), "+ Elixir still shown ticked while greyed")
+    t.eq(cfg.consumableLevel, 2, "+ elixir kept while greyed")
+    t.eq(checks.consLevel:GetLabel(), "Food + elixir", "still shown while greyed")
     NS.Window:Select("alerts")
     checks = page("checks")
     t.ok(cardActive(false), "still greyed after reopening the page")
     checks.checks.checkConsumables:Click()
     t.ok(cardActive(true), "Consumables on again: options active")
     t.eq(select(1, checks.consumablesWhen.consumablesSolo.Text:GetTextColor()), white[1], "label colour restored")
-    checks.consumables[2]:Click()
+    pick(checks.consLevel, 1)
     t.eq(cfg.consumableLevel, 1, "back to food only")
     checks.gratitude:Click()
     t.eq(cfg.gratitude, false, "thanks checkbox")

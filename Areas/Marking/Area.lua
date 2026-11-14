@@ -39,6 +39,21 @@ end
 
 local ROW_H = 32
 
+-- Player list for a Team row: none, then the group (class coloured); a saved player who left stays listed, grey.
+local function PlayerOptions(i)
+    local row = MK.Team:Rows()[i]
+    local opts = { { key = "", label = row.role == "TANK" and L["SETUP_ANYONE"] or L["SETUP_NOBODY"] } }
+    local listed = false
+    for _, m in ipairs(MK.Team:Members()) do
+        opts[#opts + 1] = { key = m.name, label = Utils.ClassColored(m.short, m.class) }
+        if m.name == row.player then listed = true end
+    end
+    if row.player and not listed then
+        opts[#opts + 1] = { key = row.player, label = "|cff888888" .. row.player .. "|r" }
+    end
+    return opts
+end
+
 local teamPage = NS:AddPage(area.key, {
     key = "team",
     title = NS.L["PAGE_TEAM"],
@@ -60,10 +75,11 @@ local teamPage = NS:AddPage(area.key, {
             row.role = Kit.Button(row, "", 90, function() MK.Team:CycleRole(i) end)
             row.role:SetPoint("LEFT", 60, 0)
             Kit.Tooltip(row.role, L["SETUP_ROLE"], L["SETUP_ROLE_DESC"])
-            row.player = Kit.Button(row, "", 200, function(_, button)
-                if button == "RightButton" then MK.Team:ClearPlayer(i) else MK.Team:CyclePlayer(i) end
-            end)
-            row.player:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            -- Player: pick from the group (user 2026-11-14: was click-to-cycle, up to 40 clicks in a raid)
+            row.player = Kit.AttachList(Kit.Button(row, "", 200), function() return PlayerOptions(i) end,
+                function() return MK.Team:Rows()[i].player or "" end,
+                function(name) MK.Team:SetPlayer(i, name ~= "" and name or nil) end, 220,
+                function() MK.Team:ClearPlayer(i) end)
             row.player:SetPoint("LEFT", row.role, "RIGHT", 8, 0)
             Kit.Tooltip(row.player, L["SETUP_PLAYER"], L["SETUP_PLAYER_DESC"])
             row.up = Kit.Button(row, L["BTN_UP"], 56, function() MK.Team:MoveRow(i, -1) end)
@@ -130,6 +146,21 @@ local function ClassLabel(class)
     return name
 end
 
+local function IconOptions()
+    local opts = { { key = 0, label = L["MOBS_AUTO"] } }
+    for icon = 8, 1, -1 do
+        opts[#opts + 1] = { key = icon, label = L["ICON_" .. icon], icon = Utils.ICON_TEXTURE,
+                            iconCoords = { Utils.IconTexCoord(icon) } }
+    end
+    return opts
+end
+
+local function ClassOptions()
+    local opts = { { key = "", label = L["MOBS_ANY"] } }
+    for _, class in ipairs(MK.MobDB.CC_CLASSES) do opts[#opts + 1] = { key = class, label = ClassLabel(class) } end
+    return opts
+end
+
 local mobsPage
 local function MobRow(parent, i)
     local page = mobsPage
@@ -185,17 +216,20 @@ local function MobRow(parent, i)
     row.plus = Kit.Button(row, "+", 24, function() MK.MobDB:StepPrio(D(i).entry, 1) end)
     row.plus:SetPoint("LEFT", row.prio, "RIGHT", 4, 0)
     Kit.Tooltip(row.plus, "+", L["MOBS_PRIO_DESC"])
-    row.icon = Kit.Button(row, "", 48, function(_, button)
-        if button == "RightButton" then MK.MobDB:ClearIcon(D(i).entry) else MK.MobDB:CycleIcon(D(i).entry) end
-    end)
-    row.icon:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    -- Icon and CC class: picked from a list (user 2026-11-14: were click-to-cycle)
+    row.icon = Kit.AttachList(Kit.Button(row, "", 56), IconOptions,
+        function() return D(i).entry.icon or 0 end,
+        function(icon) MK.MobDB:SetIcon(D(i).entry, icon ~= 0 and icon or nil) end, 130,
+        function() MK.MobDB:ClearIcon(D(i).entry) end)
     row.icon:SetPoint("LEFT", row.plus, "RIGHT", 6, 0)
     row.iconTex = row.icon:CreateTexture(nil, "OVERLAY")
     row.iconTex:SetSize(18, 18)
-    row.iconTex:SetPoint("CENTER")
+    row.iconTex:SetPoint("CENTER", -6, 0)
     row.iconTex:SetTexture(Utils.ICON_TEXTURE)
     Kit.Tooltip(row.icon, L["MOBS_AUTO"], L["MOBS_ICON_DESC"])
-    row.class = Kit.Button(row, "", 80, function() MK.MobDB:CycleClass(D(i).entry) end)
+    row.class = Kit.AttachList(Kit.Button(row, "", 88), ClassOptions,
+        function() return D(i).entry.class or "" end,
+        function(class) MK.MobDB:SetClass(D(i).entry, class ~= "" and class or nil) end, 120)
     row.class:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
     Kit.Tooltip(row.class, L["TYPE_CC"], L["MOBS_CLASS_DESC"])
     row.delete = Kit.Button(row, "X", 26, function()

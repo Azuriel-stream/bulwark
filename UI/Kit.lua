@@ -399,28 +399,51 @@ end
 -- Changing page or closing the window closes an open list.
 NS:On("WINDOW_CHANGED", function() Kit.CloseList() end)
 
--- Button that shows the current choice and opens the list. getOptions() -> options; getCurrent() -> key;
--- onPick(key, option). dd:Refresh() redraws the label (call it from the page's refresh).
+-- Turn a Kit.Button into a list opener: left-click opens the list (getOptions() -> options, getCurrent() -> key,
+-- onPick(key, option)); right-click calls onRightClick if given (e.g. "clear"). The button keeps its own label
+-- (set it with SetLabel), centered, with a chevron on the right.
+function Kit.AttachList(b, getOptions, getCurrent, onPick, listWidth, onRightClick)
+    b.label:ClearAllPoints()
+    b.label:SetPoint("LEFT", 6, 0)
+    b.label:SetPoint("RIGHT", -18, 0)
+    b.label:SetJustifyH("CENTER")
+    b.label:SetWordWrap(false)
+    b.arrow = Chevron(b, C.goldText)
+    b.arrow:SetPoint("RIGHT", -7, 0)
+    b:SetScript("OnMouseDown", nil)
+    b:SetScript("OnMouseUp", nil)
+    if onRightClick then b:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+    b:SetScript("OnClick", function(self, button)
+        if button == "RightButton" then
+            Kit.CloseList()
+            if onRightClick then onRightClick() end
+            return
+        end
+        Kit.OpenList(self, getOptions(), getCurrent(), function(key, o)
+            if onPick then onPick(key, o) end
+            if self.Refresh then self:Refresh() end
+        end, listWidth)
+    end)
+    local setActive = b.SetActive
+    function b:SetActive(enabled)
+        setActive(self, enabled)
+        self.arrow:SetAlpha(enabled and 1 or 0.4)
+    end
+    return b
+end
+
+-- Button that shows the current choice and opens the list. dd:Refresh() redraws the label from the options
+-- (call it from the page's refresh).
 function Kit.Dropdown(parent, width, getOptions, getCurrent, onPick, listWidth)
-    local dd = Kit.Button(parent, "", width, nil)
-    dd.label:ClearAllPoints()
+    local dd = Kit.AttachList(Kit.Button(parent, "", width, nil), getOptions, getCurrent, onPick, listWidth)
     dd.label:SetPoint("LEFT", 10, 0)
     dd.label:SetPoint("RIGHT", -24, 0)
-    dd.label:SetWordWrap(false)
-    dd.arrow = Chevron(dd, C.goldText)
+    dd.label:SetJustifyH("LEFT")
     dd.arrow:SetPoint("RIGHT", -9, 0)
     dd.icon = dd:CreateTexture(nil, "OVERLAY")
     dd.icon:SetSize(16, 16)
     dd.icon:SetPoint("LEFT", 8, 0)
     dd.icon:Hide()
-    dd:SetScript("OnMouseDown", nil)
-    dd:SetScript("OnMouseUp", nil)
-    dd:SetScript("OnClick", function(self)
-        Kit.OpenList(self, getOptions(), getCurrent(), function(key, o)
-            if onPick then onPick(key, o) end
-            self:Refresh()
-        end, listWidth)
-    end)
     function dd:Refresh()
         local current, shown = getCurrent(), nil
         for _, o in ipairs(getOptions()) do
@@ -433,11 +456,6 @@ function Kit.Dropdown(parent, width, getOptions, getCurrent, onPick, listWidth)
             if shown.iconCoords then self.icon:SetTexCoord(unpack(shown.iconCoords)) else self.icon:SetTexCoord(0, 1, 0, 1) end
         end
         self.label:SetPoint("LEFT", (shown and shown.icon) and 30 or 10, 0)
-    end
-    local setActive = dd.SetActive
-    function dd:SetActive(enabled)
-        setActive(self, enabled)
-        dd.arrow:SetAlpha(enabled and 1 or 0.4)
     end
     return dd
 end

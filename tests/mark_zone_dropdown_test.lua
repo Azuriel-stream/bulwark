@@ -39,6 +39,34 @@ return function(_, t)
     t.ok(page.zoneDrop:GetLabel():find("Zone 03", 1, true), "dropdown shows it")
     t.ok(page.rows[1]:IsShown() and page.rows[1].label:GetText() == "Mob 3", "its mobs listed")
 
+    -- Row icon and CC class: picked from lists (were click-to-cycle)
+    local function pickIn(key)
+        for _, r in ipairs(list.rows) do
+            if r:IsShown() and r.option.key == key then r:Click() return true end
+        end
+    end
+    local entry = MK.db.mobs["Zone 03"].names["Mob 3"]
+    page.rows[1].icon:Click()
+    t.ok(pickIn(4), "icon list has the triangle")
+    t.eq(entry.icon, 4, "icon picked")
+    t.ok(page.rows[1].iconTex:IsShown(), "row shows the icon")
+    page.rows[1].icon:Click()
+    pickIn(0)
+    t.eq(entry.icon, nil, "auto picked")
+    page.rows[1].icon:Click()
+    pickIn(8)
+    page.rows[1].icon:Click("RightButton")
+    t.eq(entry.icon, nil, "right-click back to auto")
+    MK.MobDB:CycleType(entry) -- Tank -> CC: the class button shows
+    page:refresh()
+    t.ok(page.rows[1].class:IsShown(), "CC row shows the class button")
+    page.rows[1].class:Click()
+    t.ok(pickIn("WARLOCK"), "class list has Warlock")
+    t.eq(entry.class, "WARLOCK", "class picked")
+    page.rows[1].class:Click()
+    pickIn("")
+    t.eq(entry.class, nil, "any picked")
+
     -- Arrows still step to the neighbours
     page.nextZone:Click()
     t.eq(page.zone, "Zone 04", "> steps to the next zone")

@@ -92,18 +92,25 @@ return function(sim, t)
     local pages = NS:GetArea("utilities").pages
     t.eq(pages[#pages].key, "options", "Options stays the last page")
     t.ok(page and page.frame and page.frame:IsShown(), "Gear page built and shown")
-    t.ok(page.setName:GetText():find("Tank", 1, true), "worn set selected: " .. tostring(page.setName:GetText()))
+    t.ok(page.setDrop:GetLabel():find("Tank", 1, true), "worn set selected: " .. tostring(page.setDrop:GetLabel()))
     t.ok(page.counts:GetText():find("Missing: 1", 1, true), "counts: " .. tostring(page.counts:GetText()))
     t.ok(page.goal1:GetText():find("40 defense short", 1, true), "crit goal: " .. tostring(page.goal1:GetText()))
     page.next:Click()
-    t.ok(page.setName:GetText():find("Fire", 1, true), "next set")
+    t.ok(page.setDrop:GetLabel():find("Fire", 1, true), "next set")
     t.ok(page.school:IsShown(), "resistance: school button shown")
     t.ok(page.goal1:GetText() == "", "no defense goals for a resistance set")
     page.purpose.avoidance:Click()
     t.eq(Gear.Config("Fire").purpose, "avoidance", "purpose saved per set")
     t.ok(page.goal1:GetText():find("Equip this set", 1, true), "unworn avoidance set: equip to see goals")
     page.prev:Click()
-    t.ok(page.setName:GetText():find("Tank", 1, true), "back to the worn set")
+    t.ok(page.setDrop:GetLabel():find("Tank", 1, true), "back to the worn set")
+    -- The dropdown picks any set directly
+    page.setDrop:Click()
+    for _, r in ipairs(sim.env.Bulwark_DropdownList.rows) do
+        if r:IsShown() and r.option.key == "Fire" then r:Click() end
+    end
+    t.ok(page.setDrop:GetLabel():find("Fire", 1, true), "set picked from the dropdown")
+    page.prev:Click()
     -- Right-click a flagged slot: intentional, and again: undone
     page.slots[15]:Click("RightButton")
     t.eq(Gear.Config("Tank").intentional[15], true, "right-click marks the cloak")

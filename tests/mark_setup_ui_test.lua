@@ -20,4 +20,27 @@ return function(_, t)
     t.eq(rows[1].role, "TANK", "skull skips Follow, back to Tank")
     page.rows[2].down:Click()
     t.eq(rows[2].icon, 6, "Down moves the row")
+
+    -- Player: picked from a list of the group (was click-to-cycle)
+    local Kit = sim.env.Bulwark.Kit
+    local function rowsShown()
+        local out = {}
+        for _, r in ipairs(sim.env.Bulwark_DropdownList.rows) do if r:IsShown() then out[#out + 1] = r end end
+        return out
+    end
+    page.rows[1].player:Click()
+    t.ok(Kit.IsListOpen(page.rows[1].player), "player button opens a list")
+    local shown = rowsShown()
+    local members = sim.env.Bulwark.Marking.Team:Members()
+    t.eq(#shown, #members + 1, "one entry per group member, plus none")
+    shown[3]:Click()
+    t.eq(rows[1].player, members[2].name, "picked member saved")
+    t.ok(page.rows[1].player:GetLabel():find(members[2].short, 1, true), "button shows them")
+    page.rows[1].player:Click("RightButton")
+    t.eq(rows[1].player, nil, "right-click still clears")
+    page.rows[1].player:Click()
+    rowsShown()[2]:Click()
+    page.rows[1].player:Click()
+    rowsShown()[1]:Click()
+    t.eq(rows[1].player, nil, "the first entry (anyone / nobody) clears too")
 end

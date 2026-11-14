@@ -175,22 +175,9 @@ function Team:AnyOff()
     return false
 end
 
--- Cycle the row's player through the group members, then back to none.
-function Team:CyclePlayer(i)
-    local row = Team:Rows()[i]
-    local members = Team:Members()
-    local nextName
-    if not row.player then
-        nextName = members[1] and members[1].name
-    else
-        for k, m in ipairs(members) do
-            if m.name == row.player then
-                nextName = members[k + 1] and members[k + 1].name
-                break
-            end
-        end
-    end
-    row.player = nextName
+-- From the player dropdown: a member's full name, or nil for none.
+function Team:SetPlayer(i, name)
+    Team:Rows()[i].player = name
     Changed()
 end
 

@@ -349,10 +349,18 @@ NS:AddPage("utilities", {
         page.prev:SetPoint("TOPLEFT", 12, -40)
         page.next = Kit.Button(set, ">", 26, function() page:step(1) end)
         page.next:SetPoint("TOPRIGHT", -12, -40)
-        page.setName = Kit.Text(set, 13, C.goldText)
-        page.setName:SetPoint("LEFT", page.prev, "RIGHT", 8, 0)
-        page.setName:SetPoint("RIGHT", page.next, "LEFT", -8, 0)
-        page.setName:SetJustifyH("CENTER")
+        -- Any set in one click (user 2026-11-14); the arrows still step
+        page.setDrop = Kit.Dropdown(set, 200, function()
+            local opts = {}
+            for _, s in ipairs(Gear.Sets()) do opts[#opts + 1] = { key = s.key, label = SetName(s), icon = s.icon } end
+            return opts
+        end, function() return page.set and page.set.key end, function(key)
+            page.pickSlot = nil
+            page.selected = key
+            page:refresh()
+        end)
+        page.setDrop:SetPoint("LEFT", page.prev, "RIGHT", 6, 0)
+        page.setDrop:SetPoint("RIGHT", page.next, "LEFT", -6, 0)
         page.purpose = {}
         for i, key in ipairs(Gear.PURPOSES) do
             local b = Toggle(set, L["PURPOSE_" .. key], 84, function()
@@ -486,7 +494,8 @@ NS:AddPage("utilities", {
         page.set = set
         page.prev:SetActive(#sets > 1)
         page.next:SetActive(#sets > 1)
-        page.setName:SetText(SetName(set))
+        page.setDrop:Refresh()
+        page.setDrop:SetActive(#sets > 1)
         local c = Gear.Config(set.key)
         for key, b in pairs(page.purpose) do b:SetSelected(c.purpose == key) end
         page.school:SetShown(c.purpose == "resistance")

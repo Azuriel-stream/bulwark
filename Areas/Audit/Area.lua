@@ -107,9 +107,9 @@ NS:AddPage(area.key, {
             page.checks[def.key] = cb
         end
 
-        -- Consumables: when (in a group / solo, independent: both = always), then "+ Elixir" / "+ Flask" on top of
-        -- food, at most one (radio-like checkboxes; no dropdowns, kb/gotchas.md#menu-crash). Greyed out while the
-        -- Consumables check above is off (values kept).
+        -- Consumables: when (in a group / solo, independent: both = always), then what on top of food: nothing, an
+        -- elixir or a flask (our own dropdown, Kit.Dropdown; user 2026-11-14: was two checkboxes acting as one
+        -- choice). Greyed out while the Consumables check above is off (values kept).
         local cons = Card(parent, L["AUDIT_CARD_CONSUMABLES"], y - 150, 130)
         page.consumablesWhen = {}
         for i, opt in ipairs({ { key = "consumablesInGroup", label = "AUDIT_CONS_GROUP" },
@@ -121,16 +121,15 @@ NS:AddPage(area.key, {
             cb:SetPoint("TOPLEFT", 12 + (i - 1) * 300, -38)
             page.consumablesWhen[opt.key] = cb
         end
-        page.consumables = {}
-        for i, opt in ipairs({ { level = 2, label = "AUDIT_CONS_ELIXIR" }, { level = 3, label = "AUDIT_CONS_FLASK" } }) do
-            local cb = Kit.Checkbox(cons, L[opt.label], L["AUDIT_CONS_DESC"], function(checked)
-                cfg().consumableLevel = checked and opt.level or 1
-                page:refresh()
-                Rescan()
-            end)
-            cb:SetPoint("TOPLEFT", 12 + (i - 1) * 300, -70)
-            page.consumables[opt.level] = cb
-        end
+        page.consLevel = Kit.Dropdown(cons, 220, function()
+            return { { key = 1, label = L["AUDIT_CONS_LEVEL_1"] }, { key = 2, label = L["AUDIT_CONS_LEVEL_2"] },
+                     { key = 3, label = L["AUDIT_CONS_LEVEL_3"] } }
+        end, function() return cfg().consumableLevel or 1 end, function(level)
+            cfg().consumableLevel = level
+            Rescan()
+        end)
+        page.consLevel:SetPoint("TOPLEFT", 16, -70)
+        Kit.Tooltip(page.consLevel, L["AUDIT_CARD_CONSUMABLES"], L["AUDIT_CONS_DESC"])
         page.consNote = Note(cons, L["AUDIT_CONS_DESC"], 16, -100, 600)
 
         local thanks = Card(parent, L["AUDIT_CARD_THANKS"], y - 290, 70)
@@ -152,10 +151,8 @@ NS:AddPage(area.key, {
             cb:SetChecked(cfg()[key])
             cb:SetActive(consOn)
         end
-        for level, cb in pairs(page.consumables) do
-            cb:SetChecked(cfg().consumableLevel == level)
-            cb:SetActive(consOn)
-        end
+        page.consLevel:Refresh()
+        page.consLevel:SetActive(consOn)
         Kit.SetTextColor(page.consNote, consOn and C.muted or C.disabled)
         page.gratitude:SetChecked(cfg().gratitude)
         page.raceVoice:SetChecked(cfg().raceVoice)

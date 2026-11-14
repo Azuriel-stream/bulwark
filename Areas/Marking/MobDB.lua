@@ -280,23 +280,19 @@ function MobDB:StepPrio(entry, delta)
     Changed()
 end
 
--- auto -> 8 (skull) -> 7 ... -> 1 -> auto
-function MobDB:CycleIcon(entry)
-    if not entry.icon then entry.icon = 8
-    elseif entry.icon <= 1 then entry.icon = nil
-    else entry.icon = entry.icon - 1 end
+-- From the dropdowns: icon 1-8 or nil (auto); class from CC_CLASSES or nil (any).
+function MobDB:SetIcon(entry, icon)
+    entry.icon = icon
+    Changed()
+end
+
+function MobDB:SetClass(entry, class)
+    entry.class = class
     Changed()
 end
 
 function MobDB:ClearIcon(entry)
     entry.icon = nil
-    Changed()
-end
-
--- any -> MAGE -> ... -> DRUID -> any
-function MobDB:CycleClass(entry)
-    if not entry.class then entry.class = MobDB.CC_CLASSES[1]
-    else entry.class = NextIn(MobDB.CC_CLASSES, entry.class) end
     Changed()
 end
 
