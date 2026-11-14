@@ -25,6 +25,7 @@ Core\Areas.lua
 # Window kit and window
 UI\Kit.lua
 UI\Window.lua
+UI\EditMode.lua
 
 # Areas (one tab each). Alerts: from TankAlertForever
 Areas\Alerts\Data.lua

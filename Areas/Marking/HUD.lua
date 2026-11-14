@@ -24,13 +24,17 @@ local function Tooltip(widget, title, bodyFn)
     widget:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
-local function SavePosition()
-    -- Anchor the top-left corner, so collapsing keeps the title bar where the player left it.
+-- Anchor the top-left corner, so collapsing keeps the title bar where the player left it.
+local function ReadPosition()
     local left, top = hud:GetLeft(), hud:GetTop()
     if type(left) ~= "number" or type(top) ~= "number" then return end
-    MK.db.hud.point = { x = left, y = top }
     hud:ClearAllPoints()
     hud:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    return { x = left, y = top }
+end
+
+local function SavePosition()
+    MK.db.hud.point = ReadPosition() or MK.db.hud.point
 end
 
 local function RestorePosition()
@@ -244,6 +248,16 @@ function HUD:Refresh()
     end
     hud:SetHeight(-y + 2)
 end
+
+-- Blizzard's HUD Edit Mode: a blue box over the HUD (lock or not); moves wait for Blizzard's Save (UI/EditMode.lua).
+NS.EditMode:Register({
+    label = L["HUD_TITLE"],
+    GetFrame = function() return hud end,
+    IsAvailable = function() return hud and hud:IsShown() end,
+    Read = function() return ReadPosition() end,
+    Save = function(pos) if pos then MK.db.hud.point = pos end end,
+    Restore = function() if hud then RestorePosition() end end,
+})
 
 function HUD:OnInitialize()
     MK:On("SETUP_CHANGED", function() HUD:Refresh() end)

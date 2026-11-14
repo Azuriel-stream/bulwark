@@ -240,6 +240,15 @@ L["BAR_UNLOCKED"] = "Audit tiles unlocked: drag them, then |cffffd160/bwk audit 
 L["BAR_RESET"] = "Audit tiles moved back to the default position."
 L["BAR_DRAG_HINT"] = "Bulwark Audit: drag me"
 L["RELOADED_IN_COMBAT"] = "|cffFF4444Loaded during combat: the Audit tiles need a /reload out of combat.|r"
+
+-- Blizzard's HUD Edit Mode (UI/EditMode.lua)
+L["EDITMODE_AUDIT"] = "Bulwark Audit"
+L["EDITMODE_HINT"] = "Drag to move. Blizzard's Save button keeps the new position; Revert All Changes puts it back."
+L["EDITMODE_COMBAT"] = "%s can't move during combat."
+L["EDITMODE_UNSAVED"] = "|cffffd160Bulwark|r: you moved %s in Edit Mode without saving.\nKeep the new position?"
+L["EDITMODE_KEEP"] = "Keep"
+L["EDITMODE_DISCARD"] = "Discard"
+
 L["MSG_LOCAL_FOOD"] = "You need to eat! Check your bags."
 L["MSG_LOCAL_WEAPON"] = "Your weapon needs a Sharpening Stone, Weightstone or Oil!"
 L["MSG_LOCAL_ELIXIR"] = "You need an Elixir! Check your bags."

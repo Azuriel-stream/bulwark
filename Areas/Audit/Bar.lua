@@ -19,6 +19,7 @@ local GROUP_WARN = 60
 local CONSUMABLE_WARN = 60
 
 local anchor, mover
+local bounds            -- covers the tiles on screen; the drag boxes (unlock mover, Edit Mode) follow it
 local tiles = {}        -- creation order
 local tilesByKey = {}
 local salvationHolder
@@ -28,6 +29,7 @@ local pendingPlan = nil
 local pendingLayout = false
 local preview = false
 local windowPreview = false   -- the Bulwark window is showing the Audit tab
+local editMode = false        -- Blizzard's HUD Edit Mode is open (UI/EditMode.lua)
 
 -- Should a tile be visible? Only when something needs attention: a prompt (stance/healthstone), a missing buff
 -- (expiresAt == nil), or a buff inside its warning window. Up-and-fine buffs (expiresAt 0 = no expiry) hide.
@@ -44,11 +46,15 @@ local function ApplyPosition()
     anchor:SetScale(NS.db.audit.scale)
 end
 
-local function SavePosition()
+local function ReadPosition()
     local point, _, relativePoint, x, y = anchor:GetPoint(1)
     if point then
-        NS.db.audit.point = { point, relativePoint, math.floor(x + 0.5), math.floor(y + 0.5) }
+        return { point, relativePoint, math.floor(x + 0.5), math.floor(y + 0.5) }
     end
+end
+
+local function SavePosition()
+    NS.db.audit.point = ReadPosition() or NS.db.audit.point
 end
 
 -- Every tile this class could ever need (created once, at ADDON_LOADED)
@@ -295,8 +301,8 @@ end
 
 local function CreateMover()
     mover = CreateFrame("Frame", nil, anchor)
-    mover:SetPoint("TOPLEFT", anchor, "TOPLEFT", -6, 6)
-    mover:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", 6, -6)
+    mover:SetPoint("TOPLEFT", bounds, "TOPLEFT", -6, 6)
+    mover:SetPoint("BOTTOMRIGHT", bounds, "BOTTOMRIGHT", 6, -6)
     mover:SetFrameLevel(anchor:GetFrameLevel() + 30)
     mover:EnableMouse(true)
     mover:RegisterForDrag("LeftButton")
@@ -369,6 +375,13 @@ function Bar:Apply(plan)
         end
     end
 
+    -- Bounds of what's on screen (offsets from the anchor's center), for the drag boxes
+    local minX, maxX, minY, maxY
+    local function Include(cx, cy)
+        minX, maxX = math.min(minX or cx, cx - SIZE / 2), math.max(maxX or cx, cx + SIZE / 2)
+        minY, maxY = math.min(minY or cy, cy - SIZE / 2), math.max(maxY or cy, cy + SIZE / 2)
+    end
+
     local shown = {}
     local x = -((#attention * SIZE) + ((#attention - 1) * SPACING)) / 2 + SIZE / 2
     local function Place(entry, visible)
@@ -378,6 +391,7 @@ function Bar:Apply(plan)
         entry.tile:SetAlpha(visible and 1 or 0)
         entry.tile:EnableMouse(visible)
         entry.tile:Show()
+        if visible then Include(x, 0) end
         shown[entry.tile] = true
         x = x + SIZE + SPACING
     end
@@ -392,6 +406,7 @@ function Bar:Apply(plan)
 
     -- Top row: Salvation left of center, debuff tiles (types someone can remove) to the right
     salvationHolder:SetShown(plan.salvation and true or false)
+    if plan.salvation then Include(-(SIZE / 2 + SPACING), SIZE + ROW_GAP) end
     local dx = SPACING / 2 + SIZE / 2
     for _, dtype in ipairs(D.DISPEL_ORDER) do
         local holder = debuffTiles[dtype]
@@ -406,12 +421,18 @@ function Bar:Apply(plan)
             holder:SetPoint("CENTER", anchor, "CENTER", dx, SIZE + ROW_GAP)
             holder.bg:SetShown(preview)
             holder:Show()
+            Include(dx, SIZE + ROW_GAP)
             dx = dx + SIZE + SPACING
         else
             holder.bg:Hide()
             if holder:IsShown() then holder:Hide() end
         end
     end
+
+    if not minX then Include(0, 0) end   -- nothing shown: one tile's worth at the center
+    bounds:ClearAllPoints()
+    bounds:SetPoint("TOPLEFT", anchor, "CENTER", minX, maxY)
+    bounds:SetPoint("BOTTOMRIGHT", anchor, "CENTER", maxX, minY)
 end
 
 function Bar:SetPreview(enabled)
@@ -419,9 +440,9 @@ function Bar:SetPreview(enabled)
     self:Apply(self.plan or NS.AuditScanner.plan)
 end
 
--- Preview (every tile shown) while the bar is unlocked or the Bulwark window shows the Audit tab.
+-- Preview (every tile shown) while the bar is unlocked, the Bulwark window shows the Audit tab, or Edit Mode is open.
 local function WantPreview()
-    return (not NS.db.audit.locked) or windowPreview
+    return (not NS.db.audit.locked) or windowPreview or editMode
 end
 
 function Bar:SetWindowPreview(enabled)
@@ -431,7 +452,7 @@ end
 
 function Bar:SetLocked(locked, quiet)
     NS.db.audit.locked = locked and true or false
-    if mover then mover:SetShown(not locked) end
+    if mover then mover:SetShown(not locked and not editMode) end
     if built then self:SetPreview(WantPreview()) end
     if not quiet then NS:Print(locked and L["BAR_LOCKED"] or L["BAR_UNLOCKED"]) end
 end
@@ -506,6 +527,8 @@ function Bar:OnInitialize()
     anchor:SetSize(10 * (SIZE + SPACING), SIZE * 2 + ROW_GAP)
     anchor:SetMovable(true)
     anchor:SetClampedToScreen(true)
+    -- Our own saved position only: else a move discarded in Edit Mode could come back from layout-local.txt
+    if anchor.SetDontSavePosition then anchor:SetDontSavePosition(true) end
     ApplyPosition()
     -- Hidden until the Audit area starts (it may stay off, or wait while TankAuditForever is loaded).
     anchor:Hide()
@@ -516,6 +539,9 @@ function Bar:OnInitialize()
         tilesByKey[def.tileKey] = tile
     end
     CreateTopRow()
+    bounds = CreateFrame("Frame", nil, anchor)
+    bounds:SetPoint("TOPLEFT", anchor, "CENTER", -SIZE / 2, SIZE / 2)
+    bounds:SetPoint("BOTTOMRIGHT", anchor, "CENTER", SIZE / 2, -SIZE / 2)
     CreateMover()
     preview = not NS.db.audit.locked
     built = true
@@ -540,9 +566,38 @@ function Bar:OnDisable()
     anchor:Hide()
 end
 
+-- Blizzard's HUD Edit Mode: a blue box over the tiles; moves wait for Blizzard's Save (UI/EditMode.lua).
+NS.EditMode:Register({
+    label = L["EDITMODE_AUDIT"],
+    GetFrame = function() return anchor end,
+    GetBounds = function() return bounds end,
+    IsAvailable = function() return built and anchor:IsShown() end,
+    -- The tiles are secure buttons: their parent can't move in combat.
+    CanMove = function() return not InCombatLockdown() end,
+    Read = function() return ReadPosition() end,
+    Save = function(pos) if pos then NS.db.audit.point = pos end end,
+    Restore = function()
+        if InCombatLockdown() then pendingLayout = true return end
+        ApplyPosition()
+    end,
+    OnEnter = function()
+        editMode = true
+        if not built then return end
+        mover:Hide()
+        if NS:IsAreaRunning("audit") and preview ~= WantPreview() then Bar:SetPreview(WantPreview()) end
+    end,
+    OnExit = function()
+        editMode = false
+        if not built then return end
+        mover:SetShown(not NS.db.audit.locked)
+        if NS:IsAreaRunning("audit") and preview ~= WantPreview() then Bar:SetPreview(WantPreview()) end
+    end,
+})
+
 -- For SelfAlert, tests and /bwk audit status
 function Bar:GetTile(tileKey) return tilesByKey[tileKey] end
 function Bar:GetTiles() return tiles end
 function Bar:GetAnchor() return anchor end
+function Bar:GetBounds() return bounds end
 function Bar:GetDebuffTile(dispelType) return debuffTiles[dispelType] end
 function Bar:GetSalvationHolder() return salvationHolder end
