@@ -125,6 +125,68 @@ local function OnEcho(text)
     MK:Fire("MOB_LEARNED", rec)
 end
 
+-- =========================================================================
+-- Damage meter (kb/addons/Bulwark.md: [in-game] 2 s after a pull, EnemyDamageTaken lists one row per creature type
+-- fought, with a plain name and creature ID, inside dungeons). It can't say which plate was which, so names from it
+-- only go into the mob database: matched to the offline data by name, which gives the body (model) and power type,
+-- hence the same signature a plate of that mob has.
+-- =========================================================================
+local POWER_TOKENS = { R = "RAGE", M = "MANA" }
+
+-- The offline data rows for a name in an instance, one per body (model) it uses, by model ID (a stable order):
+-- { { model, power token, boss, minimum level }, ... }. Empty if unknown.
+function Learn.DataByName(instanceID, name)
+    local mobs = instanceID and MK.InstanceMobs and MK.InstanceMobs[instanceID]
+    local found = {}
+    if not mobs or not MK.Rules.ParseVariant then return found end
+    for model, variants in pairs(mobs) do
+        for _, v in ipairs(variants) do
+            local row = MK.Rules.ParseVariant(v)
+            if row and row.name == name then
+                table.insert(found, { model = model, power = POWER_TOKENS[row.p], boss = row.boss, level = row.lo })
+                break
+            end
+        end
+    end
+    table.sort(found, function(a, b) return a.model < b.model end)
+    return found
+end
+
+-- One meter row -> AdoptName arguments: the signatures of every body the name uses, the rules' priority, a level.
+-- classification ("elite", "normal", ...) is readable; the data's boss flag wins.
+function Learn.FromMeterRow(instanceID, name, classification)
+    local rows = Learn.DataByName(instanceID, name)
+    local first = rows[1]
+    local tier = (first and first.boss) and "boss" or classification or "normal"
+    local sigs = {}
+    for _, d in ipairs(rows) do table.insert(sigs, MK.Rules.Signature(nil, tier, d.power, d.model)) end
+    local prio = MK.Rules.RoleTierPrio(MK.Rules.RoleFromPower(first and first.power), tier)
+    return sigs, prio, first and first.level
+end
+
+function Learn:ReadMeter()
+    if not MK.isEnabled or not MK:Get("learnNames") or not MK.Plates.inInstance or InCombatLockdown() then return 0 end
+    local meter, E = C_DamageMeter, Enum
+    if not (meter and meter.GetCombatSessionFromType and E and E.DamageMeterSessionType and E.DamageMeterType) then return 0 end
+    local ok, session = pcall(meter.GetCombatSessionFromType, E.DamageMeterSessionType.Current,
+        E.DamageMeterType.EnemyDamageTaken)
+    if not ok or Utils.IsSecret(session) or type(session) ~= "table" then return 0 end
+    local sources = session.combatSources
+    if Utils.IsSecret(sources) or type(sources) ~= "table" then return 0 end
+    local added = 0
+    for _, src in ipairs(sources) do
+        local name = type(src) == "table" and not Utils.IsSecret(src) and src.name
+        if type(name) == "string" and not Utils.IsSecret(name) and name ~= "" and src.isLocalPlayer ~= true then
+            local class = src.classification
+            if Utils.IsSecret(class) or type(class) ~= "string" then class = nil end
+            local sigs, prio, level = Learn.FromMeterRow(MK.Plates.instanceID, name, class)
+            if MK.MobDB:AdoptName(name, sigs, prio, level) then added = added + 1 end
+        end
+    end
+    if added > 0 then MK:Debug("learn: %d name(s) from the damage meter", added) end
+    return added
+end
+
 -- Hide our whispers in every chat frame (both the outgoing echo and the copy we receive).
 local FILTER_EVENTS = { "CHAT_MSG_WHISPER", "CHAT_MSG_WHISPER_INFORM" }
 local function Filter(_, _, msg, ...)
@@ -146,6 +208,9 @@ frame:SetScript("OnEvent", function(_, event, ...)
             markRetry = true
             C_Timer.After(0.3, function() markRetry = false; Learn:Try() end)
         end
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        -- The meter's session is secret in combat; 2 s after it worked in-game.
+        C_Timer.After(2, function() Learn:ReadMeter() end)
     elseif event == "ENCOUNTER_START" then
         inEncounter = true
     elseif event == "ENCOUNTER_END" or event == "PLAYER_ENTERING_WORLD" then
@@ -156,7 +221,7 @@ end)
 
 function Learn:OnEnable()
     for _, ev in ipairs({ "PLAYER_TARGET_CHANGED", "CHAT_MSG_WHISPER_INFORM", "RAID_TARGET_UPDATE",
-        "ENCOUNTER_START", "ENCOUNTER_END", "PLAYER_ENTERING_WORLD" }) do
+        "ENCOUNTER_START", "ENCOUNTER_END", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED" }) do
         frame:RegisterEvent(ev)
     end
     local util = ChatFrameUtil

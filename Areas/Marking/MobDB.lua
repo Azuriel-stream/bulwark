@@ -236,6 +236,55 @@ function MobDB:RecordVisible()
     return added
 end
 
+-- =========================================================================
+-- Real names in instances (Learn.lua: the %t echo when you target a mob, the damage meter after a pull).
+-- A name entry is added only when the zone has none for that name. Its settings are copied from the body
+-- (signature) entry the mob matched, so your tuning carries over; with no body entry it gets the rules' default,
+-- but only while recording is on. Existing entries are never changed or deleted: body entries stay as the fallback
+-- for mobs whose name isn't known yet (not targeted this visit), and they still cover the other mobs sharing the body.
+-- =========================================================================
+local INHERIT = { "type", "prio", "icon", "class" }   -- not the note (a label for the body) or the levels
+
+-- name; sigs: the signatures the mob may have, best first (a plate's sig + sigBase; from the data, every body the
+-- name uses: 138 of 976 names have more than one, e.g. male and female models); the first with an entry is copied.
+-- defaultPrio: rules' priority if nothing to copy. Returns the new entry, or nil if nothing was added.
+function MobDB:AdoptName(name, sigs, defaultPrio, level)
+    if type(name) ~= "string" or name == "" or not MK.Plates.inInstance then return nil end
+    local zone = MK:GetZoneMobs(MK.Plates.zone)
+    if zone.names[name] then return nil end
+    local bodyKey
+    for _, sig in ipairs(sigs or {}) do
+        if zone.sigs[sig] then bodyKey = sig; break end
+    end
+    local entry
+    if bodyKey then
+        entry = {}
+        for _, k in ipairs(INHERIT) do entry[k] = zone.sigs[bodyKey][k] end
+    elseif MK:Get("record") and defaultPrio then
+        entry = { type = "TANK", prio = defaultPrio }
+    else
+        return nil
+    end
+    zone.names[name] = entry
+    MobDB.NoteLevel(entry, level)
+    MobDB.RememberInstance()
+    if bodyKey then
+        MK:Print(L["NAMED_FROM_BODY"], name, tonumber(entry.prio) or 0,
+            zone.sigs[bodyKey].note or MobDB.DefaultLabel(MK.Plates.zone, bodyKey, zone.sigs[bodyKey]))
+    else
+        MK:Print(L["RECORDED"], name, entry.prio)
+    end
+    MK:Fire("MOBDB_CHANGED")
+    return entry
+end
+
+-- A plate's name was learned: add its name entry (settings from the body entry it matched).
+local function OnLearned(rec)
+    if not rec or not rec.learnedName then return end
+    MobDB:AdoptName(rec.learnedName, { rec.sig, rec.sigBase },
+        Rules.RoleTierPrio(Rules.RoleFromPower(rec.power), rec.tier), rec.level)
+end
+
 function MobDB:OnInitialize()
     MobDB.MigrateTypes(MK.db.mobs)
     local merged = MobDB:MigrateModelSigs()
@@ -243,6 +292,7 @@ function MobDB:OnInitialize()
         C_Timer.After(5, function() MK:Print(L["MOBS_MERGED"], table.concat(merged, ", ")) end)
     end
     MK:On("PLATES_CHANGED", function() MobDB:RecordVisible() end)
+    MK:On("MOB_LEARNED", OnLearned)
 end
 
 -- Forget the entry a unit would match. Returns its label or nil.

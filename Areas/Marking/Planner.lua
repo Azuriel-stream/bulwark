@@ -3,7 +3,8 @@ local MK = NS.Marking
 
 -- Pack planner: decides which icon each visible mob gets, out of combat. Port of legacy DecidePull
 -- (Core/TankMark_Pull.lua v0.32): fixed icons, then the kill ladder by priority, then CC on the leftovers.
--- Knowledge per mob: learned by name (open world) > learned by signature (instances) > rules (power type x tier).
+-- Knowledge per mob: learned by name (open world, or the name learned from the %t echo in instances) > learned by
+-- signature (instances) > rules (power type x tier).
 local Planner = MK:RegisterModule("Planner")
 local Rules, Utils = MK.Rules, MK.Utils
 
@@ -14,7 +15,8 @@ Planner.plan = { entries = {}, killOrder = {}, overflow = {}, reserved = {} }
 -- =========================================================================
 function Planner.Knowledge(rec, zoneMobs)
     if zoneMobs then
-        local e = rec.name and zoneMobs.names[rec.name]
+        local name = rec.name or rec.learnedName
+        local e = name and zoneMobs.names[name]
         if e then return e, "name" end
         e = zoneMobs.sigs[rec.sig] or (rec.sigBase and zoneMobs.sigs[rec.sigBase])
         if e then return e, "sig" end
@@ -322,6 +324,7 @@ end
 
 function Planner:OnInitialize()
     MK:On("PLATES_CHANGED", function() Planner:Rebuild() end)
+    MK:On("MOB_LEARNED", function() MK.Plates.Changed() end)   -- a name entry may now apply to that plate
     if SetRaidTarget then hooksecurefunc("SetRaidTarget", OnSetRaidTarget) end
     if RemoveRaidTargets then hooksecurefunc("RemoveRaidTargets", function() wipe(Planner.placed) end) end
 end

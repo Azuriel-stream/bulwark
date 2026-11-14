@@ -97,6 +97,7 @@ L["OPT_OVERLAY_DESC"] = "Faint icons above nameplates show what the pack key wil
 L["OPT_RECORD"] = "Record mobs in dungeons"
 L["OPT_RECORD_DESC"] = "Inside dungeons and raids, every new mob type you see (out of combat) is added here as Tank with the default priority (casters 2, melee 4, bosses 1). Existing entries are never changed. Tune them later; they don't change the plan until you do."
 L["RECORDED"] = "Recorded: %s (prio %d)"
+L["NAMED_FROM_BODY"] = "Named: %s (prio %d, settings taken from its body entry %s)"
 L["OPT_LEARN"] = "Learn mob names and marks in dungeons"
 L["OPT_LEARN_DESC"] = "When you target a mob (Tab or click), Bulwark sends you a hidden whisper with %t; the game fills in the mob's name and raid mark, which addons can't read directly in dungeons. The Announce button then names the marked mobs. Not during boss fights (the game blocks it)."
 L["OPT_SHIFT"] = "Shift-hover selects a pack"

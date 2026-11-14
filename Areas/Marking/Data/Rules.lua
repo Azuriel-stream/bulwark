@@ -141,6 +141,8 @@ local function ParseVariant(v)
              boss = flags:find("B", 1, true) ~= nil }
 end
 
+Rules.ParseVariant = ParseVariant   -- Learn.lua: find a damage-meter name in the data
+
 -- The variants with the plate's power type (any, if unknown), narrowed to the level range lo..hi when some overlap.
 -- keep(row): optional extra filter.
 local function MatchVariants(variants, powerToken, lo, hi, keep)

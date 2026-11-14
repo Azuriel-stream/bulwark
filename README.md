@@ -95,7 +95,11 @@ themselves, so marking always happens on a key press (bind the keys under Keybin
 - **Mob names in dungeons:** the game hides mob names and marks from addons inside dungeons. When you target a mob,
   Bulwark sends you a hidden whisper with `%t`; the game fills in the mob's name and mark, so Bulwark learns them.
   You never see these whispers. Tab through a pack before announcing. Not during boss fights (the game blocks it).
-- **Mobs page:** what Bulwark learned per zone (priority, type, fixed icon, CC class), page by page.
+  After each fight, the game's damage meter also tells Bulwark which mobs you fought.
+- **Mobs page:** what Bulwark learned per zone (priority, type, fixed icon, CC class), page by page. In dungeons,
+  each mob gets its own entry under its real name once Bulwark learns it, starting with the settings of the body
+  entry it matched ("Searing Blade Cultist +2"); existing entries are never changed, and body entries stay as the
+  fallback for mobs not learned yet.
 - **Options:** planned icons above nameplates, Shift-hover to select a pack, only nearby mobs in view, record new
   mob types in dungeons, learn mob names and marks in dungeons.
 - **Keys:** the current bindings, and macros that still use TankMarkForever's button names.
