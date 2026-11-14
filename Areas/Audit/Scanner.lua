@@ -74,6 +74,64 @@ local function SpellItem(tileKey, key, ids, labelKey, warn, byId, extraIds)
     }
 end
 
+-- A buff's own value (Battle Shout: attack power, talents and set bonuses included), when readable.
+local function AuraValue(aura)
+    local points = aura and aura.points
+    if type(points) ~= "table" or Utils.IsSecret(points) then return nil end
+    local v = points[1]
+    if type(v) ~= "number" or Utils.IsSecret(v) or v <= 0 then return nil end
+    return v
+end
+
+local function OwnAura(aura)
+    return aura.sourceUnit ~= nil and not Utils.IsSecret(aura.sourceUnit) and UnitIsUnit(aura.sourceUnit, "player")
+end
+Scanner.OwnAura = OwnAura
+
+local function LearnedValues()
+    local all = cfg().selfStrength
+    local guid = UnitGUID("player") or "?"
+    all[guid] = all[guid] or {}
+    return all[guid]
+end
+
+-- What you'd put up yourself: your best known rank, at its value learned from your own casts; a rank you haven't
+-- cast yet gets its base value scaled by what your talents added to a rank you did cast. Returns value, base, spellID.
+function Scanner.OwnStrength(def)
+    local bestId, bestBase
+    for id, base in pairs(def.strength) do
+        if Utils.IsKnown(id) and (not bestBase or base > bestBase) then bestId, bestBase = id, base end
+    end
+    if not bestId then return nil end
+    local learned = LearnedValues()
+    if learned[bestId] then return learned[bestId], bestBase, bestId end
+    for id, value in pairs(learned) do
+        local base = def.strength[id]
+        if base then return math.floor(bestBase * value / base + 0.5), bestBase, bestId end
+    end
+    return bestBase, bestBase, bestId
+end
+
+-- A self buff that someone else may have put on you (`strength` in Data.lua). Your own copy is always fine (and
+-- teaches us its real value); someone else's counts only when it's at least as strong as yours. Compares real values
+-- when the aura has one, else rank base values. Returns nil when it's fine, or { theirs, mine } when it's weaker.
+function Scanner.CompareSelfBuff(def, aura)
+    local value = AuraValue(aura)
+    if OwnAura(aura) then
+        if value then LearnedValues()[aura.spellId] = value end
+        return nil
+    end
+    local mine, myBase = Scanner.OwnStrength(def)
+    if not mine then return nil end
+    if value then
+        if value < mine then return { theirs = value, mine = mine } end
+        return nil
+    end
+    local base = def.strength[aura.spellId]
+    if base and base < myBase then return { theirs = base, mine = myBase } end
+    return nil
+end
+
 -- Main-hand temporary enchant (sharpening stone, oil...). Returns hasEnchant, secondsLeft.
 -- timeLeft is assumed to be milliseconds like the legacy API [unverified: check /bwk audit dump].
 local function MainHandEnchant()
@@ -195,6 +253,11 @@ function Scanner:BuildPlan(helpful)
                 end
             elseif not def.requireKnown or Utils.KnowsAny(def.ids) then
                 local item = SpellItem("SELF:" .. def.key, def.key, def.ids, nil, def.warn or SELF_WARN, byId)
+                if def.strength and item.expiresAt ~= nil then
+                    -- someone else's weaker copy: treat as missing (the tile hides its icon; Bar.lua)
+                    item.weaker = Scanner.CompareSelfBuff(def, FindAura(byId, item.ids))
+                    if item.weaker then item.expiresAt = nil end
+                end
                 item.action = CastOrRequest(def.ids)
                 item.ownCast = def.alert -- SelfAlert keeps expiresAt current from your own casts, even in combat
                 tiles[#tiles + 1] = item
@@ -306,9 +369,18 @@ function Scanner:Dump()
         Utils.ForEachAura("player", filter, function(a)
             local source = a.sourceUnit and Utils.GetUnitFullName(a.sourceUnit) or "-"
             local left = (a.expirationTime and a.expirationTime > 0) and Utils.FormatTime(a.expirationTime - now) or "-"
-            print(string.format("  %s %d  %s  src:%s  %s%s", filter == "HARMFUL" and "|cffFF4444DEBUFF|r" or "buff",
-                a.spellId, tostring(a.name), source, left, a.dispelName and ("  type:" .. a.dispelName) or ""))
+            local value = AuraValue(a)
+            print(string.format("  %s %d  %s  src:%s  %s%s%s", filter == "HARMFUL" and "|cffFF4444DEBUFF|r" or "buff",
+                a.spellId, tostring(a.name), source, left, value and ("  value:" .. value) or "",
+                a.dispelName and ("  type:" .. a.dispelName) or ""))
         end)
+    end
+    for _, def in ipairs(D.SELF[NS.playerClass] or {}) do
+        if def.strength then
+            local mine, base, id = Scanner.OwnStrength(def)
+            print(string.format("  %s: yours = %s (spell %s, base %s, %s)", def.key, tostring(mine), tostring(id),
+                tostring(base), (id and LearnedValues()[id]) and "learned" or "estimated"))
+        end
     end
     local slot = Enum.WeaponSlot and Enum.WeaponSlot.MainHand or 0
     local ok, enchants = pcall(C_Item.GetWeaponEnchantInfo, slot)

@@ -34,6 +34,7 @@ NS.DefaultConfig.audit = {
     watchSound = true,          -- in-combat sound when Battle Shout / Righteous Fury is about to fade
     watchWarnSeconds = 15,
     watchDurations = {},        -- [spellID] = real duration learned out of combat
+    selfStrength = {},          -- [playerGUID] = { [spellID] = your own buff's value (talents included), learned OOC }
     -- With N paladins in the group, the first N entries are expected (per tank class).
     blessingPriority = {
         WARRIOR = { "KINGS", "MIGHT", "LIGHT", "WISDOM" },

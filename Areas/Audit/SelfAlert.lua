@@ -13,13 +13,16 @@ local frame = CreateFrame("Frame", "Bulwark_AuditSelfAlertFrame")
 
 local function cfg() return NS.db.audit end
 
--- Out of combat the aura is readable: learn the real duration and the exact expiry.
+-- Out of combat the aura is readable: learn the real duration and the exact expiry. Only your own copy counts: when
+-- another warrior's shout covers you, its refreshes are invisible to us in combat, so timing a warning from it would
+-- sound for nothing (user 2026-11-14: no alerts while someone else's buff covers you; the tile still shows its timer).
 local function SyncFromAuras()
     for _, e in ipairs(entries) do
         e.expiresAt = nil
         for _, id in ipairs(e.def.ids) do
             local aura = C_UnitAuras.GetPlayerAuraBySpellID(id)
-            if aura and not Utils.IsSecret(aura.expirationTime) then
+            if aura and not Utils.IsSecret(aura.expirationTime)
+                and (not e.def.strength or aura.sourceUnit == nil or NS.AuditScanner.OwnAura(aura)) then
                 if aura.duration and aura.duration > 0 then
                     cfg().watchDurations[id] = aura.duration
                 end
@@ -59,8 +62,13 @@ function Alert:OnSpellCast(spellID)
             e.expiresAt = GetTime() + (cfg().watchDurations[spellID] or e.def.duration)
             e.warned = false
             e.tile.glow:Hide()
-            -- Keep the tile's own expiry current so the bar can fade it out again after a recast (even in combat)
-            if e.tile.item then e.tile.item.expiresAt = e.expiresAt end
+            -- Keep the tile's own expiry current so the bar can fade it out again after a recast (even in combat);
+            -- your cast replaces a weaker copy from someone else, so the slot shows again
+            if e.tile.item then
+                e.tile.item.expiresAt = e.expiresAt
+                e.tile.item.weaker = nil
+            end
+            NS.AuditBar.ShowSlot(e.tile, true)
         end
     end
 end

@@ -12,10 +12,15 @@ local D = NS.AuditData
 -- `warn` = seconds before expiry at which the tile's countdown turns red.
 -- `alert` = in-combat sound + glow, timed from your own last cast (own casts aren't secret);
 -- `duration` = fallback until the real duration is learned out of combat.
+-- `strength` = [spellID] = base value per rank, for buffs other players can put on you too (user 2026-11-14): someone
+-- else's copy counts only when it's at least as strong as yours (Scanner.CompareSelfBuff); a weaker one = missing.
 D.SELF = {
     WARRIOR = {
         { key = "BATTLE_SHOUT", ids = { 6673, 5242, 6192, 11549, 11550, 11551, 25289, 27578 }, warn = 15,
-          requireKnown = true, alert = true, duration = 180, icon = "Interface\\Icons\\Ability_Warrior_BattleShout" },
+          requireKnown = true, alert = true, duration = 180, icon = "Interface\\Icons\\Ability_Warrior_BattleShout",
+          -- attack power per rank, wowf 1.60.1.70938 [data]; 27578 is an old 120 s version (not a player rank)
+          strength = { [6673] = 9, [5242] = 21, [6192] = 33, [11549] = 51, [11550] = 78, [11551] = 111,
+                       [25289] = 139, [27578] = 185 } },
         { key = "DEFENSIVE_STANCE", stance = 71, skipSolo = true, icon = "Interface\\Icons\\Ability_Warrior_DefensiveStance" },
     },
     PALADIN = {

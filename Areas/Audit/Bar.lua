@@ -160,6 +160,8 @@ local function ShowTooltip(tile)
     GameTooltip:SetText(item.label or "?", 1, 1, 1)
     if item.detail then
         GameTooltip:AddLine(item.detail, 1, 0.82, 0, true)     -- gear warnings say what's wrong
+    elseif item.weaker then
+        GameTooltip:AddLine(string.format(L["HINT_WEAKER"], item.weaker.theirs, item.weaker.mine), 1, 0.3, 0.3, true)
     elseif item.expiresAt and item.expiresAt > 0 then
         GameTooltip:AddLine(string.format(L["HINT_EXPIRING"], Utils.FormatTime(item.expiresAt - GetTime())), 1, 0.82, 0)
     else
@@ -323,8 +325,15 @@ local function CreateMover(frame, area, text, onStop)
     return m
 end
 
+-- Someone else's weaker copy of a self buff counts as missing: hide Blizzard's slot so the tile shows our red art
+-- instead of that buff's icon and timer. Alpha isn't protected; SelfAlert lifts this on your own cast, in combat too.
+function Bar.ShowSlot(tile, show)
+    if tile.blizzardSlot then pcall(tile.blizzardSlot.SetAlpha, tile.blizzardSlot, show and 1 or 0) end
+end
+
 local function SetupTile(tile, item)
     tile.item = item
+    Bar.ShowSlot(tile, not item.weaker)
     local action = item.action or {}
     if action.type == "spell" then
         tile:SetAttribute("type", "spell")
