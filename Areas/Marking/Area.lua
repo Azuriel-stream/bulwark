@@ -113,7 +113,7 @@ local teamPage = NS:AddPage(area.key, {
 })
 
 ---------------------------------------------------------------------------------------------------------------
--- Mobs (database per zone): from TankMarkForever UI/Mobs.lua. Paged list, zones switched with arrows (no dropdowns).
+-- Mobs (database per zone): from TankMarkForever UI/Mobs.lua. Paged list; zone picked from our own dropdown (Kit.Dropdown) or stepped with arrows.
 ---------------------------------------------------------------------------------------------------------------
 
 local MOB_ROWS = 10
@@ -222,10 +222,23 @@ mobsPage = NS:AddPage(area.key, {
         page.zone, page.page = MK.Plates.zone, 1
         page.prevZone = Kit.Button(parent, L["BTN_PREV"], 28, function() StepZone(-1) end)
         page.prevZone:SetPoint("TOPLEFT", 0, 0)
-        page.zoneText = Kit.Text(parent, 16, C.goldText)
-        page.zoneText:SetPoint("LEFT", page.prevZone, "RIGHT", 10, 0)
+        -- Any zone in one click (user 2026-11-14); the arrows still step to the neighbours.
+        page.zoneDrop = Kit.Dropdown(parent, 320, function()
+            local opts = {}
+            for _, zone in ipairs(MK.MobDB:Zones(MK.Plates.zone)) do
+                local label = string.format(L["MOBS_ZONE"], zone, #MK.MobDB:Entries(zone))
+                if zone == MK.Plates.zone then label = label .. " " .. L["MOBS_ZONE_HERE"] end
+                opts[#opts + 1] = { key = zone, label = label }
+            end
+            return opts
+        end, function() return page.zone end, function(zone)
+            page.zone, page.page = zone, 1
+            page:refresh()
+        end)
+        page.zoneDrop:SetPoint("LEFT", page.prevZone, "RIGHT", 6, 0)
+        Kit.Tooltip(page.zoneDrop, L["MOBS_ZONE_PICK"], L["MOBS_ZONE_PICK_DESC"])
         page.nextZone = Kit.Button(parent, L["BTN_NEXT"], 28, function() StepZone(1) end)
-        page.nextZone:SetPoint("LEFT", page.zoneText, "RIGHT", 10, 0)
+        page.nextZone:SetPoint("LEFT", page.zoneDrop, "RIGHT", 6, 0)
 
         local card = Card(parent, nil, -34, MOB_ROWS * MOB_ROW_H + 50)
         page.empty = Kit.Paragraph(card, L["MOBS_EMPTY"], 600, 12, C.muted)
@@ -257,7 +270,8 @@ mobsPage = NS:AddPage(area.key, {
         for _, z in ipairs(zones) do if z == page.zone then found = true end end
         if not found then page.zone = MK.Plates.zone ~= "" and MK.Plates.zone or zones[1] end
         local entries = page.zone and MK.MobDB:Entries(page.zone) or {}
-        page.zoneText:SetText(string.format(L["MOBS_ZONE"], page.zone or "?", #entries))
+        page.zoneDrop:Refresh()
+        page.zoneDrop:SetActive(#zones > 0)
         page.prevZone:SetActive(#zones > 1)
         page.nextZone:SetActive(#zones > 1)
         local pages = math.max(1, math.ceil(#entries / MOB_ROWS))

@@ -249,6 +249,199 @@ function Kit.Checkbox(parent, text, tooltip, onClick)
     return cb
 end
 
+---------------------------------------------------------------------------------------------------------------
+-- Dropdown: our own list of plain buttons (the idea seen working in OneForAll on the live client). Blizzard's
+-- menu system (WowStyle1DropdownTemplate / Blizzard_Menu) is still not used: it crashed the beta client
+-- (kb/gotchas.md#menu-crash). One list at a time; a click outside, a page change or closing the window closes it.
+-- options = { { key =, label = [, icon =, iconCoords = {l, r, t, b}][, color = {r, g, b}][, header = true] }, ... }
+---------------------------------------------------------------------------------------------------------------
+
+local LIST_ROW_H, LIST_MAX_ROWS = 20, 14
+local list, catcher
+
+-- Small down chevron from two rotated lines (our own art).
+local function Chevron(parent, c)
+    local holder = CreateFrame("Frame", nil, parent)
+    holder:SetSize(10, 6)
+    for i, angle in ipairs({ -math.pi / 4, math.pi / 4 }) do
+        local t = holder:CreateTexture(nil, "OVERLAY")
+        t:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
+        t:SetSize(7, 1.5)
+        t:SetPoint("CENTER", holder, "CENTER", i == 1 and -2 or 2, 0)
+        t:SetRotation(angle)
+        Snap(t)
+    end
+    return holder
+end
+
+local function ListRow(i)
+    local r = CreateFrame("Button", nil, list)
+    r:SetHeight(LIST_ROW_H)
+    r:SetPoint("TOPLEFT", 4, -4 - (i - 1) * LIST_ROW_H)
+    r:SetPoint("RIGHT", list, "RIGHT", -10, 0)
+    r.hi = Kit.Fill(r, C.tabActive, "HIGHLIGHT")
+    r.check = Kit.Fill(r, C.gold, "ARTWORK")
+    r.check:ClearAllPoints()
+    r.check:SetPoint("LEFT", 2, 0)
+    r.check:SetSize(3, LIST_ROW_H - 6)
+    r.icon = r:CreateTexture(nil, "ARTWORK")
+    r.icon:SetSize(16, 16)
+    r.icon:SetPoint("LEFT", 10, 0)
+    r.text = Kit.Text(r, 12)
+    r.text:SetWordWrap(false)
+    r:SetScript("OnClick", function(self)
+        local o, onPick = self.option, list.onPick
+        Kit.CloseList()
+        if o and onPick then onPick(o.key, o) end
+    end)
+    return r
+end
+
+local function DrawList()
+    local options, w = list.options, list.width
+    local visible = math.min(#options, LIST_MAX_ROWS)
+    list.offset = math.max(0, math.min(list.offset, #options - visible))
+    for i = 1, LIST_MAX_ROWS do
+        local r = list.rows[i] or ListRow(i)
+        list.rows[i] = r
+        local o = options[list.offset + i]
+        r.option = o
+        r:SetShown(i <= visible and o ~= nil)
+        if o then
+            r:SetEnabled(not o.header)
+            r.icon:SetShown(o.icon ~= nil)
+            if o.icon then
+                r.icon:SetTexture(o.icon)
+                if o.iconCoords then r.icon:SetTexCoord(unpack(o.iconCoords)) else r.icon:SetTexCoord(0, 1, 0, 1) end
+            end
+            r.text:ClearAllPoints()
+            r.text:SetPoint("LEFT", o.header and 6 or (o.icon and 30 or 10), 0)
+            r.text:SetPoint("RIGHT", -4, 0)
+            r.text:SetText(o.label)
+            local selected = not o.header and o.key == list.current
+            r.check:SetShown(selected)
+            Kit.SetTextColor(r.text, o.header and C.muted or (selected and C.goldText) or o.color or C.text)
+        end
+    end
+    -- Scroll thumb when the list is longer than the window
+    local scrolling = #options > visible
+    list.track:SetShown(scrolling)
+    if scrolling then
+        local trackH = visible * LIST_ROW_H
+        local thumbH = math.max(12, trackH * visible / #options)
+        list.thumb:SetHeight(thumbH)
+        list.thumb:SetPoint("TOP", list.track, "TOP", 0, -(trackH - thumbH) * list.offset / (#options - visible))
+    end
+    list:SetSize(w, visible * LIST_ROW_H + 8)
+end
+
+local function BuildList()
+    catcher = CreateFrame("Button", "Bulwark_DropdownCatcher", UIParent)
+    catcher:SetAllPoints(UIParent)
+    catcher:SetFrameStrata("FULLSCREEN_DIALOG")
+    catcher:SetFrameLevel(1)
+    catcher:RegisterForClicks("AnyUp")
+    catcher:SetScript("OnClick", function() Kit.CloseList() end)
+    catcher:Hide()
+    list = CreateFrame("Frame", "Bulwark_DropdownList", UIParent)
+    list:SetFrameStrata("FULLSCREEN_DIALOG")
+    list:SetFrameLevel(20)
+    list:SetClampedToScreen(true)
+    list:EnableMouse(true)
+    list:EnableMouseWheel(true)
+    Kit.Fill(list, C.panel)
+    Kit.Border(list, C.goldDim)
+    list.track = CreateFrame("Frame", nil, list)
+    list.track:SetPoint("TOPRIGHT", -3, -4)
+    list.track:SetPoint("BOTTOMRIGHT", -3, 4)
+    list.track:SetWidth(3)
+    Kit.Fill(list.track, C.line)
+    list.thumb = Kit.Fill(list.track, C.goldDim, "ARTWORK")
+    list.thumb:ClearAllPoints()
+    list.thumb:SetWidth(3)
+    list.rows = {}
+    list:SetScript("OnMouseWheel", function(_, delta)
+        list.offset = list.offset - delta * 3
+        DrawList()
+    end)
+    list:SetScript("OnHide", function() catcher:Hide() end)
+    list:Hide()
+end
+
+-- Open the shared list under owner. current = the key shown as selected; onPick(key, option).
+function Kit.OpenList(owner, options, current, onPick, width)
+    if not list then BuildList() end
+    if list:IsShown() and list.owner == owner then Kit.CloseList() return end
+    list.owner, list.options, list.current, list.onPick = owner, options, current, onPick
+    list.width = math.max(width or 0, owner:GetWidth() or 160)
+    -- Same scale as the window the owner sits in (the list hangs off UIParent so it isn't clipped)
+    list:SetScale(owner:GetEffectiveScale() / UIParent:GetEffectiveScale())
+    -- Open scrolled to the selected entry
+    list.offset = 0
+    for i, o in ipairs(options) do
+        if o.key == current and not o.header then list.offset = i - math.floor(LIST_MAX_ROWS / 2) end
+    end
+    DrawList()
+    list:ClearAllPoints()
+    list:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
+    catcher:Show()
+    list:Show()
+end
+
+function Kit.CloseList()
+    if list and list:IsShown() then list:Hide() end
+end
+
+function Kit.IsListOpen(owner)
+    return list ~= nil and list:IsShown() and (owner == nil or list.owner == owner)
+end
+
+-- Changing page or closing the window closes an open list.
+NS:On("WINDOW_CHANGED", function() Kit.CloseList() end)
+
+-- Button that shows the current choice and opens the list. getOptions() -> options; getCurrent() -> key;
+-- onPick(key, option). dd:Refresh() redraws the label (call it from the page's refresh).
+function Kit.Dropdown(parent, width, getOptions, getCurrent, onPick, listWidth)
+    local dd = Kit.Button(parent, "", width, nil)
+    dd.label:ClearAllPoints()
+    dd.label:SetPoint("LEFT", 10, 0)
+    dd.label:SetPoint("RIGHT", -24, 0)
+    dd.label:SetWordWrap(false)
+    dd.arrow = Chevron(dd, C.goldText)
+    dd.arrow:SetPoint("RIGHT", -9, 0)
+    dd.icon = dd:CreateTexture(nil, "OVERLAY")
+    dd.icon:SetSize(16, 16)
+    dd.icon:SetPoint("LEFT", 8, 0)
+    dd.icon:Hide()
+    dd:SetScript("OnMouseDown", nil)
+    dd:SetScript("OnMouseUp", nil)
+    dd:SetScript("OnClick", function(self)
+        Kit.OpenList(self, getOptions(), getCurrent(), function(key, o)
+            if onPick then onPick(key, o) end
+            self:Refresh()
+        end, listWidth)
+    end)
+    function dd:Refresh()
+        local current, shown = getCurrent(), nil
+        for _, o in ipairs(getOptions()) do
+            if o.key == current and not o.header then shown = o break end
+        end
+        self.label:SetText(shown and shown.label or "-")
+        self.icon:SetShown(shown ~= nil and shown.icon ~= nil)
+        if shown and shown.icon then
+            self.icon:SetTexture(shown.icon)
+            if shown.iconCoords then self.icon:SetTexCoord(unpack(shown.iconCoords)) else self.icon:SetTexCoord(0, 1, 0, 1) end
+        end
+        self.label:SetPoint("LEFT", (shown and shown.icon) and 30 or 10, 0)
+    end
+    local setActive = dd.SetActive
+    function dd:SetActive(enabled)
+        setActive(self, enabled)
+        dd.arrow:SetAlpha(enabled and 1 or 0.4)
+    end
+    return dd
+end
+
 -- Slider with < > steppers (MinimalSliderWithSteppersTemplate, [in-game] proven in TAF).
 -- format(value) -> text for the value label; onChange(value) after rounding to step.
 -- deferred: while the thumb is dragged only the label follows; onChange runs once on release. Needed when the
