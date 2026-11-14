@@ -200,37 +200,65 @@ function Team:Reset()
 end
 
 -- =========================================================================
--- Announcement, up to three lines: "[Bulwark] Kill order: {rt8} Tankard > {rt7} > {rt6}",
--- "[Bulwark] CC: {rt5} Lumen (Polymorph)" and "[Bulwark] Follow: {rt1} Tankard"
+-- Announcement, up to three lists:
+--   "[Bulwark] Kill order: {rt8} Twilight Grunt (Tankard) > {rt7} Krol'dok Brute"
+--   "[Bulwark] CC: {rt5} Ragefire Shaman: Lumen (Polymorph)"
+--   "[Bulwark] Follow: {rt1} Tankard"
+-- Mob names come from the mobs wearing the icons (Learn.MobsByIcon: our own marks, then marks learned from the %t
+-- echo). Once any kill icon sits on a known mob, the kill list names the pack only; with none (before marking, or
+-- learning off) it lists every kill icon as before.
 -- =========================================================================
+local MAX_LINE = 250   -- chat messages are cut at 255 characters
+
 local function ShortName(full)
     local m = Team:FindMember(full)
     return (m and m.short) or (full and full:match("^(%S+)")) or full
 end
 
+-- "label a > b > c", split over several lines (each with the label) when it gets too long for one message.
+local function Wrap(label, items, sep)
+    local lines, current = {}, nil
+    local head = L["ANNOUNCE_PREFIX"] .. " " .. label .. " "
+    for _, item in ipairs(items) do
+        if current and #current + #sep + #item > MAX_LINE then
+            table.insert(lines, current)
+            current = nil
+        end
+        current = current and (current .. sep .. item) or (head .. item)
+    end
+    if current then table.insert(lines, current) end
+    return lines
+end
+
 function Team:BuildAnnouncement()
-    local kill, cc, follow = {}, {}, {}
+    local mobs = MK.Learn and MK.Learn.MobsByIcon() or {}
+    local function MobName(icon)
+        local rec = mobs[icon]
+        return rec and MK.Learn.NameOf(rec)
+    end
+    local kill, killNamed, cc, follow = {}, {}, {}, {}
     for _, row in ipairs(Team:Rows()) do
         local icon = "{rt" .. row.icon .. "}"
+        local mob = MobName(row.icon)
         if row.role == "TANK" and not row.off then
-            table.insert(kill, row.player and (icon .. " " .. ShortName(row.player)) or icon)
+            local owner = row.player and ShortName(row.player)
+            table.insert(kill, owner and (icon .. " " .. owner) or icon)
+            if mob then table.insert(killNamed, icon .. " " .. mob .. (owner and (" (" .. owner .. ")") or "")) end
         elseif row.role == "CC" and row.player and not row.off then
             local m = Team:FindMember(row.player)
             local spell = m and Team.CC_SPELL[m.class]
-            table.insert(cc, icon .. " " .. ShortName(row.player) .. (spell and (" (" .. L[spell] .. ")") or ""))
+            table.insert(cc, icon .. " " .. (mob and (mob .. ": ") or "") .. ShortName(row.player)
+                .. (spell and (" (" .. L[spell] .. ")") or ""))
         elseif row.role == "FOLLOW" and row.player and not row.off then
             table.insert(follow, icon .. " " .. ShortName(row.player))
         end
     end
-    -- One line per list, each with its own label (player chat can't carry custom colours).
+    -- One list per line, each with its own label (player chat can't carry custom colours).
     -- Never a bare "|" in chat: it starts an escape sequence and the client rejects the message.
-    local lines = { L["ANNOUNCE_PREFIX"] .. " " .. L["ANNOUNCE_KILL"] .. " " .. table.concat(kill, " > ") }
-    if #cc > 0 then
-        table.insert(lines, L["ANNOUNCE_PREFIX"] .. " " .. L["ANNOUNCE_CC"] .. " " .. table.concat(cc, ", "))
-    end
-    if #follow > 0 then
-        table.insert(lines, L["ANNOUNCE_PREFIX"] .. " " .. L["ANNOUNCE_FOLLOW"] .. " " .. table.concat(follow, ", "))
-    end
+    local lines = Wrap(L["ANNOUNCE_KILL"], #killNamed > 0 and killNamed or kill, " > ")
+    if #lines == 0 then lines = { L["ANNOUNCE_PREFIX"] .. " " .. L["ANNOUNCE_KILL"] } end
+    for _, l in ipairs(Wrap(L["ANNOUNCE_CC"], cc, ", ")) do table.insert(lines, l) end
+    for _, l in ipairs(Wrap(L["ANNOUNCE_FOLLOW"], follow, ", ")) do table.insert(lines, l) end
     return lines
 end
 

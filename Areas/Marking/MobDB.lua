@@ -309,10 +309,11 @@ function MobDB:Delete(zone, kind, key)
     Changed()
 end
 
--- The label shown in plans and overlays for a plate record: its name, the player's note on its signature, or the
--- generic description.
+-- The label shown in plans and overlays for a plate record: its name (readable, or learned from the %t echo), the
+-- player's note on its signature, or the generic description.
 function MobDB:Label(rec, zone)
     if rec.name then return rec.name end
+    if rec.learnedName then return rec.learnedName end
     local data = MK.db and MK.db.mobs[zone or MK.Plates.zone]
     local entry = data and (data.sigs[rec.sig] or (rec.sigBase and data.sigs[rec.sigBase]))
     return (entry and entry.note) or rec.dataName or MobDB.DescribeSig(rec.sig)

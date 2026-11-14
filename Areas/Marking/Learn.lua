@@ -1,0 +1,175 @@
+local ADDON_NAME, NS = ...
+local MK = NS.Marking
+
+-- Real mob names and marks inside dungeons (kb/addons/Bulwark.md, "Research: real mob names..."). Names and marks are
+-- secret to addons there, but the chat client fills in "%t" itself: the target's name, prefixed with its raid mark as
+-- {rtN}. On every hostile target change we whisper ourselves "%t" and read the echo, which is plain text outside boss
+-- encounters [in-game 2026-11-14: out of combat and in trash combat; every addon send blocked during an encounter].
+-- The whispers never show: a chat filter discards them, which also skips the whisper sound and the reply target.
+-- A loophole Blizzard may close: everything falls back to the offline data names (rec.dataName).
+local Learn = MK:RegisterModule("Learn")
+local Utils = MK.Utils
+
+local TAG = "BWK~"             -- sent "BWK~<n>~%t"; the echo reads "BWK~<n>~{rt4}Twilight Grunt"
+local MIN_GAP = 0.25           -- seconds between whispers (a burst of Tab presses sends the last target only)
+local PENDING_TTL = 10         -- an echo later than this is ignored
+
+local seq, lastSend = 0, -math.huge
+local retryQueued = false
+local inEncounter = false
+local markEpoch = 0            -- +1 on every mark change: marks learned before it may be out of date
+local pending = {}             -- [n] = { rec, epoch, at }
+
+-- =========================================================================
+-- Pure part (tests drive it directly)
+-- =========================================================================
+
+-- "BWK~12~{rt4}Twilight Grunt" -> 12, 4, "Twilight Grunt". icon 0 = unmarked. nil if it isn't ours. A name of ""
+-- or "<no target>" (the target was gone when the client sent it) comes back as nil.
+function Learn.Parse(text)
+    if type(text) ~= "string" or Utils.IsSecret(text) then return nil end
+    local n, rest = text:match("^BWK~(%d+)~(.*)$")
+    if not n then return nil end
+    local icon = 0
+    local tag, after = rest:match("^{([^}]*)}(.*)$")
+    if tag then
+        local tags = ICON_TAG_LIST
+        icon = tonumber(tag:match("^[rR][tT](%d)$")) or (type(tags) == "table" and tags[tag:lower()]) or 0
+        rest = after
+    end
+    local name = strtrim(rest)
+    if name == "" or name:sub(1, 1) == "<" then name = nil end
+    return tonumber(n), icon, name
+end
+
+function Learn.IsOurs(text)
+    return type(text) == "string" and not Utils.IsSecret(text) and text:find("^BWK~%d+~") ~= nil
+end
+
+-- The name a mob goes by in announcements: readable name (open world), learned name, unique offline data name.
+function Learn.NameOf(rec)
+    return rec.name or rec.learnedName or rec.dataName
+end
+
+-- The mark learned for a record, if no mark changed since (nil = unknown, 0 = none).
+function Learn.MarkOf(rec)
+    if rec.learnedEpoch == markEpoch then return rec.learnedIcon end
+    return nil
+end
+
+-- The living mob wearing each icon, as far as this client knows: icons our keys put on a plate (Planner.placed,
+-- exact and current), then marks learned from the echo (anyone's marks, current since the last mark change).
+function Learn.MobsByIcon()
+    local Plates, byIcon, taken = MK.Plates, {}, {}
+    for icon, rec in pairs(MK.Planner.placed) do
+        if rec and not rec.dead and Plates.records[rec.token] == rec then
+            byIcon[icon], taken[rec] = rec, true
+        end
+    end
+    for _, rec in pairs(Plates.records) do
+        local icon = Learn.MarkOf(rec)
+        if icon and icon > 0 and not byIcon[icon] and not taken[rec] and not rec.dead then
+            byIcon[icon], taken[rec] = rec, true
+        end
+    end
+    return byIcon
+end
+
+-- =========================================================================
+-- Shell
+-- =========================================================================
+
+-- Learning needs: the option on, no boss fight (sends are blocked and Blizzard shows an error), a hostile mob with a
+-- plate whose name isn't readable anyway, and nothing learned for it since the last mark change.
+local function Wanted(rec)
+    if not rec or rec.player or not rec.hostile or rec.dead then return false end
+    if rec.name then return false end   -- open world: the name is readable, no whisper needed
+    return rec.learnedName == nil or rec.learnedEpoch ~= markEpoch
+end
+
+function Learn:Try()
+    if not MK.isEnabled or not MK:Get("learnNames") or inEncounter or NS.Utils.ChatRestricted() then return end
+    if not UnitExists("target") then return end
+    local rec = MK.Plates:RecordFor("target")
+    if not Wanted(rec) then return end
+    local wait = lastSend + MIN_GAP - GetTime()
+    if wait > 0 then
+        if not retryQueued then
+            retryQueued = true
+            C_Timer.After(wait, function() retryQueued = false; Learn:Try() end)
+        end
+        return
+    end
+    local me = MK.Team.FullName("player")
+    if not me then return end
+    seq = seq + 1
+    pending[seq] = { rec = rec, epoch = markEpoch, at = GetTime() }
+    lastSend = GetTime()
+    local ok, err = pcall(C_ChatInfo.SendChatMessage, TAG .. seq .. "~%t", "WHISPER", nil, me)
+    if not ok then
+        pending[seq] = nil
+        MK:Debug("learn: send failed (%s)", tostring(err))
+    end
+end
+
+local function OnEcho(text)
+    local n, icon, name = Learn.Parse(text)
+    local entry = n and pending[n]
+    if not entry then return end
+    pending[n] = nil
+    local rec = entry.rec
+    if GetTime() - entry.at > PENDING_TTL or MK.Plates.records[rec.token] ~= rec then return end   -- plate gone/reused
+    if not name then return end
+    rec.learnedName, rec.learnedIcon, rec.learnedEpoch = name, icon, entry.epoch
+    MK:Debug("learn: %s = %s%s", rec.token, name, icon > 0 and (" (mark " .. icon .. ")") or "")
+    MK:Fire("MOB_LEARNED", rec)
+end
+
+-- Hide our whispers in every chat frame (both the outgoing echo and the copy we receive).
+local FILTER_EVENTS = { "CHAT_MSG_WHISPER", "CHAT_MSG_WHISPER_INFORM" }
+local function Filter(_, _, msg, ...)
+    if Learn.IsOurs(msg) then return true end
+    return false, msg, ...
+end
+
+local markRetry = false
+local frame = CreateFrame("Frame", "BWK_LearnFrame")
+frame:SetScript("OnEvent", function(_, event, ...)
+    if event == "PLAYER_TARGET_CHANGED" then
+        Learn:Try()
+    elseif event == "CHAT_MSG_WHISPER_INFORM" then
+        OnEcho((...))
+    elseif event == "RAID_TARGET_UPDATE" then
+        markEpoch = markEpoch + 1
+        -- The current target may have just been marked: learn its mark once the burst of updates settles.
+        if not markRetry then
+            markRetry = true
+            C_Timer.After(0.3, function() markRetry = false; Learn:Try() end)
+        end
+    elseif event == "ENCOUNTER_START" then
+        inEncounter = true
+    elseif event == "ENCOUNTER_END" or event == "PLAYER_ENTERING_WORLD" then
+        inEncounter = false
+        if event == "PLAYER_ENTERING_WORLD" then wipe(pending) end
+    end
+end)
+
+function Learn:OnEnable()
+    for _, ev in ipairs({ "PLAYER_TARGET_CHANGED", "CHAT_MSG_WHISPER_INFORM", "RAID_TARGET_UPDATE",
+        "ENCOUNTER_START", "ENCOUNTER_END", "PLAYER_ENTERING_WORLD" }) do
+        frame:RegisterEvent(ev)
+    end
+    local util = ChatFrameUtil
+    if util and util.AddMessageEventFilter then
+        for _, ev in ipairs(FILTER_EVENTS) do util.AddMessageEventFilter(ev, Filter) end
+    end
+end
+
+function Learn:OnDisable()
+    frame:UnregisterAllEvents()
+    local util = ChatFrameUtil
+    if util and util.RemoveMessageEventFilter then
+        for _, ev in ipairs(FILTER_EVENTS) do util.RemoveMessageEventFilter(ev, Filter) end
+    end
+    wipe(pending)
+end

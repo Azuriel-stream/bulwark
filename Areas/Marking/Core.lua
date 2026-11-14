@@ -23,6 +23,7 @@ MK.DefaultConfig = {
     shiftSelect = true,     -- Shift-hover adds a mob to the pack selection (out of combat)
     nearOnly = true,        -- plan only mobs within ~30 yd (unless a Shift-hover selection is active)
     record = true,          -- inside dungeons/raids, new mob types become database entries automatically
+    learnNames = true,      -- dungeons: learn each targeted mob's real name and mark from a hidden %t whisper (Learn.lua)
     -- HUD: always shown; clicking its title bar collapses it. point = { x, y } of the top-left corner, nil = default;
     -- locked = true: the title bar doesn't drag.
     hud = { collapsed = false },

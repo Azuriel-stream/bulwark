@@ -89,11 +89,15 @@ themselves, so marking always happens on a key press (bind the keys under Keybin
 - **Next skull on target** and **next free icon on target:** in-combat overrides on your target.
 - **Clear all marks:** follow marks come back on.
 
-- **Team page:** the kill order (top first), each mark's role (Tank, CC or Follow) and player; Announce posts it.
-  Saved per character.
+- **Team page:** the kill order (top first), each mark's role (Tank, CC or Follow) and player; Announce posts it,
+  naming the marked mobs (`Kill order: {skull} Searing Blade Cultist > {cross} Searing Blade Enforcer`). Saved per
+  character.
+- **Mob names in dungeons:** the game hides mob names and marks from addons inside dungeons. When you target a mob,
+  Bulwark sends you a hidden whisper with `%t`; the game fills in the mob's name and mark, so Bulwark learns them.
+  You never see these whispers. Tab through a pack before announcing. Not during boss fights (the game blocks it).
 - **Mobs page:** what Bulwark learned per zone (priority, type, fixed icon, CC class), page by page.
 - **Options:** planned icons above nameplates, Shift-hover to select a pack, only nearby mobs in view, record new
-  mob types in dungeons.
+  mob types in dungeons, learn mob names and marks in dungeons.
 - **Keys:** the current bindings, and macros that still use TankMarkForever's button names.
 - **HUD:** a small always-on list of the marks; click a mark to switch it off for the next pulls, right-click to
   open the Team page, click the title to collapse it.

@@ -52,6 +52,7 @@ Areas\Marking\Data\ModelNames.lua
 Areas\Marking\Data\InstanceMobs.lua
 Areas\Marking\Data\Rules.lua
 Areas\Marking\Plates.lua
+Areas\Marking\Learn.lua
 Areas\Marking\Team.lua
 Areas\Marking\MobDB.lua
 Areas\Marking\Planner.lua

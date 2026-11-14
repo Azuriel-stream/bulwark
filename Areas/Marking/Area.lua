@@ -359,6 +359,7 @@ local OPTIONS = {
     { key = "shiftSelect", text = "OPT_SHIFT" },
     { key = "nearOnly", text = "OPT_NEAR" },
     { key = "record", text = "OPT_RECORD" },
+    { key = "learnNames", text = "OPT_LEARN" },
 }
 
 NS:AddPage(area.key, {
