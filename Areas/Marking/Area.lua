@@ -523,6 +523,7 @@ area.commandHelp = {
     "|cffffd160/bwk mark|r announce||plan||status  " .. NS.L["HELP_MARK_MAIN"],
     "|cffffd160/bwk mark learn|r <1-9||ignore||cc> [icon||class], |cffffd160forget|r  " .. NS.L["HELP_MARK_LEARN"],
     "|cffffd160/bwk mark|r select clear, overlay  " .. NS.L["HELP_MARK_MISC"],
+    "|cffffd160/bwk mark abilities|r [name]  " .. NS.L["HELP_MARK_ABILITIES"],
 }
 
 function area.command(args)
@@ -532,6 +533,9 @@ function area.command(args)
         MK.Team:Announce()
     elseif cmd == "status" then
         Status()
+    elseif cmd == "abilities" then
+        -- The name keeps its case: take it from the raw arguments.
+        MK.Abilities.Report((args or ""):match("^%s*%S+%s+(.-)%s*$"))
     elseif not running then
         MK:Print(NS.L["MARK_NOT_RUNNING"])
     elseif cmd == "plan" then
