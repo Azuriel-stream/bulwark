@@ -120,7 +120,7 @@ function Abilities.Report(name)
     end
     local spells = Abilities.Spells(entry)
     local where = MK.MobAbilityInstances and MK.MobAbilityInstances[instanceID] or tostring(instanceID)
-    MK:Print(L["ABIL_HEADER"], realName, where, #spells)
+    MK:Print(#spells == 1 and L["ABIL_HEADER_ONE"] or L["ABIL_HEADER"], realName, where, #spells)
     for _, spell in ipairs(spells) do print("  " .. Abilities.Describe(spell)) end
     if entry.wiki then print(L["ABIL_SOURCE_WIKI"]) end
 end

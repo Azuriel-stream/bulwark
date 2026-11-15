@@ -379,6 +379,7 @@ L["MARK_BTN_MOVE_KEYS_TIP"] = "Bulwark does this by itself when Marking starts. 
 L["MARK_NO_OLD_KEYS"] = "No keys are bound to TankMarkForever's buttons."
 L["MARK_NOT_RUNNING"] = "Marking is off or waiting. Turn it on first (/bwk mark)."
 L["HELP_MARK_ABILITIES"] = "what a mob casts (your target, or by name)"
+L["HELP_MARK_BRIEF"] = "post the interrupt briefing for the pack in view (preview: print it only)"
 L["HELP_MARK_MAIN"] = "post the kill order, print the pack plan, show status"
 L["HELP_MARK_LEARN"] = "teach or forget the hovered/targeted mob"
 L["HELP_MARK_MISC"] = "clear the Shift-hover selection, toggle planned icons"

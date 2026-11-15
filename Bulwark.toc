@@ -56,6 +56,7 @@ Areas\Marking\Data\MobAbilities.lua
 Areas\Marking\Plates.lua
 Areas\Marking\Learn.lua
 Areas\Marking\Abilities.lua
+Areas\Marking\Briefing.lua
 Areas\Marking\Team.lua
 Areas\Marking\MobDB.lua
 Areas\Marking\Planner.lua

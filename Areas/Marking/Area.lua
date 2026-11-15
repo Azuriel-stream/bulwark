@@ -524,6 +524,7 @@ area.commandHelp = {
     "|cffffd160/bwk mark learn|r <1-9||ignore||cc> [icon||class], |cffffd160forget|r  " .. NS.L["HELP_MARK_LEARN"],
     "|cffffd160/bwk mark|r select clear, overlay  " .. NS.L["HELP_MARK_MISC"],
     "|cffffd160/bwk mark abilities|r [name]  " .. NS.L["HELP_MARK_ABILITIES"],
+    "|cffffd160/bwk mark brief|r [preview]  " .. NS.L["HELP_MARK_BRIEF"],
 }
 
 function area.command(args)
@@ -540,6 +541,8 @@ function area.command(args)
         MK:Print(NS.L["MARK_NOT_RUNNING"])
     elseif cmd == "plan" then
         MK.Planner:Report()
+    elseif cmd == "brief" then
+        if arg1 == "preview" then MK.Briefing.Preview() else MK.Briefing.Post() end
     elseif cmd == "select" and arg1 == "clear" then
         MK.Plates:ClearSelection()
     elseif cmd == "learn" then

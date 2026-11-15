@@ -229,6 +229,7 @@ local function Wrap(label, items, sep)
     if current then table.insert(lines, current) end
     return lines
 end
+Team.Wrap = Wrap   -- Briefing uses the same wrapping
 
 function Team:BuildAnnouncement()
     local mobs = MK.Learn and MK.Learn.MobsByIcon() or {}
@@ -262,13 +263,14 @@ function Team:BuildAnnouncement()
     return lines
 end
 
-function Team:Announce()
+-- Posts lines to raid/party chat; solo (or while addon chat is restricted) prints them instead.
+function Team:Send(lines)
     local channel = IsInRaid() and "RAID" or (IsInGroup() and "PARTY") or nil
     if channel and NS.Utils.ChatRestricted() then   -- Bulwark: blocked while addon chat is restricted
         MK:Print(NS.L["MSG_CHAT_RESTRICTED"])
         channel = nil
     end
-    for _, msg in ipairs(Team:BuildAnnouncement()) do
+    for _, msg in ipairs(lines) do
         if not channel then
             MK:Print(L["ANNOUNCE_SOLO"], msg)
         else
@@ -276,6 +278,10 @@ function Team:Announce()
             if not ok then MK:Print(L["ANNOUNCE_FAILED"], tostring(err), msg) end
         end
     end
+end
+
+function Team:Announce()
+    Team:Send(Team:BuildAnnouncement())
 end
 
 -- The roster changes who owns which icon: re-plan.
