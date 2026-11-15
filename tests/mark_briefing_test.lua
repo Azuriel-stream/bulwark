@@ -19,6 +19,7 @@ local function names(sim)
     sim.spells[11976] = "Strike"
     sim.spells[20800] = "Immolate"
     sim.spells[3358] = "Leech Poison"
+    sim.spells[18267] = "Curse of Weakness"
 end
 
 local function sent(sim, channel)
@@ -216,8 +217,11 @@ return function(_, t)
     local party = sent(sim, "PARTY")
     t.eq(party[1], "[Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); "
         .. "Ragefire Shaman: Healing Wave -> Kira (Earth Shock)", "posted interrupt line with assignments")
-    t.eq(party[2], "[Bulwark] Best effort: Lightning Bolt, Shadow Bolt, Immolate", "the far boss target is included")
-    t.eq(#party, 2, "two lines posted")
+    -- Jergosh's curated hints (step 6): Immolate is a must nobody is free for, so it leads best effort; his curse note.
+    t.eq(party[2], "[Bulwark] Best effort: Immolate, Lightning Bolt, Shadow Bolt", "the far boss target is included")
+    t.eq(party[3], "[Bulwark] Note: Curse of Weakness (Jergosh the Invoker): Curse on the tank: remove it.",
+        "hint note posted")
+    t.eq(#party, 3, "three lines posted")
 
     -- Not in combat; not while addon chat is restricted; solo prints instead.
     sim:EnterCombat()
@@ -227,13 +231,13 @@ return function(_, t)
     sim:LeaveCombat()
     sim:Fire("PLAYER_REGEN_ENABLED")
     sim:Advance(1)
-    t.eq(#sent(sim, "PARTY"), 2, "nothing posted in combat")
+    t.eq(#sent(sim, "PARTY"), 3, "nothing posted in combat")
     sim.group = "none"
     sim.output = {}
     sim:Slash("/bwk mark brief")
     t.contains(sim.output, "Not in a group", "solo: printed instead")
     sim.group = "party"
-    t.eq(#sent(sim, "PARTY"), 2, "nothing posted solo")
+    t.eq(#sent(sim, "PARTY"), 3, "nothing posted solo")
 
     -- Nothing worth a kick.
     for i = 2, 7 do sim.units["nameplate" .. i] = nil; sim:Fire("NAME_PLATE_UNIT_REMOVED", "nameplate" .. i) end
@@ -243,7 +247,7 @@ return function(_, t)
     sim.output = {}
     sim:Slash("/bwk mark brief")
     t.contains(sim.output, "Nothing to brief", "only a Trogg left: nothing posted")
-    t.eq(#sent(sim, "PARTY"), 2, "still two lines")
+    t.eq(#sent(sim, "PARTY"), 3, "still three lines")
 
     -- 7. Names secret (dungeon): nameless plates are counted, never guessed; a learned name (%t echo) is used.
     local sim2 = t.fresh(rfc)

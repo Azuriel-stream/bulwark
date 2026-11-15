@@ -7,6 +7,8 @@ local MK = NS.Marking
 -- Build step 2: who interrupts which mob (KIT, KitFor, Assign, Roster).
 -- Build step 3: the tile and the "Post briefing" key (BriefingTile.lua).
 -- Build step 5: casts seen in play, learned from the damage meter after each fight (ReadMeter, FindEntry).
+-- Build step 6: curated hints (MK.BriefingHints, generated from tools/data/briefing-hints.json): per spell, or per
+-- mechanic ("@Patrol": no spell) shown and posted like a cast with a note.
 -- Later steps: interrupter assignment (2), tile + keybind (3), per-ability edits on the Mobs page (4), learning
 -- from the damage meter (5), curated hints in the generated data (6).
 local Briefing = {}
@@ -78,9 +80,18 @@ end
 -- The abilities of one data entry that matter, best first: { { spell, prio, source, note, deadly, order } }.
 -- A spell listed twice (two triggers) counts once, at its best priority. Also returns how many were ignored.
 -- lookup(spellID) -> hint, override (both optional).
+-- The entry's casts (Abilities.Spells) plus its curated mechanics: { id = "@Patrol", kind = "note" } pseudo casts.
+function Briefing.EntrySpells(entry)
+    local list = Abilities.Spells(entry)
+    for _, key in ipairs(entry and entry.mechanics or {}) do
+        list[#list + 1] = { id = key, kind = "note", cast = 0, trigger = "hint", rmin = 0, rmax = 0 }
+    end
+    return list
+end
+
 function Briefing.MobSpells(entry, lookup)
     local byID, list, ignored = {}, {}, 0
-    for i, spell in ipairs(Abilities.Spells(entry)) do
+    for i, spell in ipairs(Briefing.EntrySpells(entry)) do
         local hint, override
         if lookup then hint, override = lookup(spell.id) end
         local prio, source, note, deadly = Briefing.Priority(spell, hint, override)
@@ -102,6 +113,7 @@ function Briefing.MobSpells(entry, lookup)
 end
 
 local function SpellName(id)
+    if type(id) == "string" then return (id:gsub("^@", "")) end   -- a curated mechanic ("@Patrol")
     local name = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(id)
     if type(name) == "string" and not Utils.IsSecret(name) and name ~= "" then return name end
     return "#" .. id
@@ -328,19 +340,27 @@ end
 
 -- The mob's casts: the offline data merged with what was seen in play here. Returns entry, realName (nil if
 -- neither knows the mob). entry.seen = { [spellID] = rec } for spells seen in play.
+-- Also adds the mob's curated mechanics (entry.mechanics = { "@Patrol", ... }). Returns entry, realName, and the
+-- instance whose hints apply (where the data found the mob, else the one given).
 function Briefing.FindEntry(name, instanceID)
-    local entry, realName = Abilities.Find(name, instanceID)
-    local learned = Briefing.LearnedMobs(instanceID)[realName or name]
-    if not learned then return entry, realName end
-    local merged, have, ids = { boss = entry and entry.boss, seen = learned }, {}, {}
+    local entry, realName, foundIn = Abilities.Find(name, instanceID)
+    local where = foundIn or instanceID
+    local key = realName or name
+    local learned = Briefing.LearnedMobs(instanceID)[key]
+    local hints = where and MK.BriefingHints and MK.BriefingHints[where] and MK.BriefingHints[where][key]
+    local mechanics = {}
+    for k in pairs(hints or {}) do if type(k) == "string" then mechanics[#mechanics + 1] = k end end
+    table.sort(mechanics)
+    if not learned and #mechanics == 0 then return entry, realName, where end
+    local merged, have, ids = { boss = entry and entry.boss, seen = learned, mechanics = mechanics }, {}, {}
     for _, s in ipairs(entry or {}) do
         merged[#merged + 1] = s
         have[tonumber(s:match("^(%d+)"))] = true
     end
-    for id in pairs(learned) do if not have[id] then ids[#ids + 1] = id end end
+    for id in pairs(learned or {}) do if not have[id] then ids[#ids + 1] = id end end
     table.sort(ids)
     for _, id in ipairs(ids) do merged[#merged + 1] = SeenSpell(id, learned[id]) end
-    return merged, realName or name
+    return merged, key, where
 end
 
 -- Records one sighting. A kick upgrades a hit (it proves the spell can be interrupted). Returns true if new.
@@ -527,13 +547,15 @@ function Briefing.AbilityRows(instanceID)
         local entry = entries[name]
         local hints = MK.BriefingHints and MK.BriefingHints[instanceID] and MK.BriefingHints[instanceID][name]
         local spells, seen = {}, {}
-        for _, spell in ipairs(Abilities.Spells(entry)) do
+        for _, spell in ipairs(Briefing.EntrySpells(entry)) do
             if spell.kind ~= "passive" and not seen[spell.id] then
                 seen[spell.id] = true
                 local auto, source = Briefing.Priority(spell, hints and hints[spell.id], nil)
+                local hint = hints and hints[spell.id]
                 spells[#spells + 1] = { mob = name, spell = spell, auto = auto, autoSource = source,
                                         override = Briefing.GetOverride(name, spell.id),
-                                        seen = entry.seen and entry.seen[spell.id] }
+                                        seen = entry.seen and entry.seen[spell.id],
+                                        hintNote = hint and hint.note ~= "" and hint.note or nil }
             end
         end
         if #spells > 0 then
@@ -568,13 +590,13 @@ function Briefing.Collect()
     local mobs, byName = {}, {}
     for _, rec in ipairs(recs) do
         local name = MK.Learn.NameOf(rec)
-        local entry, realName = Briefing.FindEntry(name, instanceID)
+        local entry, realName, hintsIn = Briefing.FindEntry(name, instanceID)
         if not name then
             summary.unknown = summary.unknown + 1
         elseif not entry then
             summary.noData[name] = (summary.noData[name] or 0) + 1
         else
-            local spells, ignored = Briefing.MobSpells(entry, Lookup(instanceID, realName))
+            local spells, ignored = Briefing.MobSpells(entry, Lookup(hintsIn, realName))
             summary.ignored = summary.ignored + ignored
             local icon = iconOf[rec]
             local key = not icon and realName

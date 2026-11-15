@@ -455,6 +455,9 @@ local function BriefRow(parent, i)
     row.note:SetMaxLetters(80)
     row.note.placeholder = Kit.Text(row.note, 11, C.muted)
     row.note.placeholder:SetPoint("LEFT", 2, 0)
+    row.note.placeholder:SetPoint("RIGHT", -2, 0)
+    row.note.placeholder:SetJustifyH("LEFT")
+    row.note.placeholder:SetWordWrap(false)
     row.note.placeholder:SetText(L["BRIEF_PAGE_NOTE_HINT"])
     row.note:SetScript("OnTextChanged", UpdatePlaceholder)
     row.note:SetScript("OnEditFocusGained", UpdatePlaceholder)
@@ -475,6 +478,8 @@ local function BriefRow(parent, i)
     row.note:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(L["BRIEF_COL_NOTE"], 1, 1, 1)
+        local r = briefData[i]
+        if r and r.hintNote then GameTooltip:AddLine(string.format(L["BRIEF_PAGE_HINT_NOTE"], r.hintNote), 1, 0.82, 0, true) end
         GameTooltip:AddLine(L["BRIEF_PAGE_NOTE_DESC"], nil, nil, nil, true)
         GameTooltip:Show()
     end)
@@ -586,6 +591,9 @@ briefPage = NS:AddPage(area.key, {
                     local o = r.override
                     row.prio:SetLabel(o and o.prio and PrioText(o.prio) or DefaultLabel())
                     if not row.note:HasFocus() then row.note:SetText(o and o.note or "") end
+                    -- A curated hint's note shows in grey until you write your own (yours replaces it).
+                    row.note.placeholder:SetText(r.hintNote and string.format(L["BRIEF_PAGE_HINT_NOTE"], r.hintNote)
+                        or L["BRIEF_PAGE_NOTE_HINT"])
                     UpdatePlaceholder(row.note)
                 end
             end

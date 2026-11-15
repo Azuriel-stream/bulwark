@@ -902,3 +902,27 @@ MK.MobAbilityInstances = { -- instance map ID -> name (Forever DB2, English)
 [2999]="Ruins of Lordaeron",
 [3065]="The Hall of Thanes",
 }
+-- Curated Briefing hints (tools/data/briefing-hints.json; facts in our own words). Sources:
+--   fdt: ForeverDungeonTools 1.0.1 (Samy Khayat, modified MythicDungeonTools by Nnoggie, GPL-2.0): ability flags of the Ruins of Lordaeron and Hall of Thanes bosses, 2026-09-29 data. Facts adapted, text rewritten.
+--   bulwark: Bulwark's own picks (Ragefire Chasm bosses, 2026-11-15), from the ability data and play.
+-- [map][mob][spellID or "@mechanic"] = { flags = {...}, note = "..." }
+MK.BriefingHints = {
+[389]={ -- Ragefire Chasm
+["Jergosh the Invoker"]={[20800]={flags={"interrupt"}},[18267]={flags={"dispel-curse"},note="Curse on the tank: remove it."}},
+["Taragaman the Hungerer"]={[18072]={flags={"tank"},note="Knocks the tank back: tank him against a wall."},[11970]={flags={"healer"},note="Fire damage to everyone near him."}},
+},
+[2999]={ -- Ruins of Lordaeron
+["Bjork"]={["@Knockback"]={flags={"tank","important"},note="Knocks players back."},[1301635]={flags={"purge"},note="Shields itself against magic."},[14099]={flags={"tank","healer"},note="Hits the tank hard."}},
+["Rath'mael"]={[18399]={flags={"deadly","interrupt"},note="Area fire: interrupt it, move out if it lands."},["@Large health pool"]={flags={"important"},note="Long fight: save cooldowns."}},
+["The Abandoned"]={["@Statue event"]={flags={"important"},note="The fight starts with an event at the statues."},[14907]={flags={"healer"},note="Roots and hurts everyone close."},[1266011]={flags={"interrupt"}}},
+["The Baron"]={["@Hurl"]={flags={"tank"},note="Throws the tank. Aggro resets."},["@Patrol"]={flags={"important"},note="Patrols: watch his path before pulling nearby packs."}},
+["Viktor the Vile"]={["@Grim Campfire"]={flags={"important"},note="Campfire mechanic in his room."},[3358]={flags={"dispel-poison","healer"},note="Poisons: cure it."}},
+["Witherfang"]={["@Spider adds"]={flags={"important"},note="Spiders around the courtyard join the fight: clear them first."},[3358]={flags={"dispel-poison"},note="Poisons the tank."}},
+},
+[3065]={ -- The Hall of Thanes
+["Durgen Dirgehammer"]={[19134]={flags={"important"},note="Fears at low health."},["@Stone Golems"]={flags={"tank"},note="Golem adds for the tank."}},
+["Faldrim Anvilmar"]={[13860]={flags={"interrupt"}},[1292602]={flags={"dispel-curse"},note="Curse: remove it."},["@Patrol"]={flags={"important"},note="Patrols: watch his path."}},
+["Magmatus"]={["@Summoner adds"]={flags={"important"},note="Dark Iron summoner adds: kill them."},[11970]={flags={"healer"},note="Fire damage around it."}},
+["Plunder"]={[22911]={flags={"tank","important"},note="Charges and knocks back."},[11130]={flags={"tank"},note="Knocks the tank away."}},
+},
+}

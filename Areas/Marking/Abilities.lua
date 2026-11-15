@@ -76,6 +76,9 @@ end
 
 -- "Healing Wave: heal, 3.0 s cast, when an ally is hurt, every 24 s, interruptible"
 function Abilities.Describe(spell)
+    if type(spell.id) == "string" then   -- a curated mechanic (Briefing hints): no spell behind it
+        return spell.id:gsub("^@", "") .. ": " .. L["ABIL_KIND_note"]
+    end
     local parts = { L["ABIL_KIND_" .. spell.kind] }
     if spell.channel then
         parts[#parts + 1] = L["ABIL_CHANNEL"]

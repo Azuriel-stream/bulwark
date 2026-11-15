@@ -41,6 +41,7 @@ buttons move over by themselves; macros that `/click TMF_...` need `TMF_` change
 | `/bwk mark learn <1-9\|ignore\|cc> [icon\|class]`, `/bwk mark forget` | teach or forget the hovered/targeted mob |
 | `/bwk mark select clear`, `/bwk mark overlay` | clear the Shift-hover selection, toggle planned icons |
 | `/bwk mark abilities [name]` | what a dungeon mob casts and when (your target, or by name) |
+| `/bwk mark brief [preview\|status\|test]` | post the interrupt briefing for the pack in view; `preview` prints it only, `status` says why the tile is hidden, `test` shows the tile solo |
 | `/bwk utilities avoid` | print your attack table (same as the Avoidance page) |
 | `/bwk utilities tracker [reset]` | show or hide the enchant mats tracker; `reset` moves it back under the minimap |
 
@@ -89,6 +90,7 @@ themselves, so marking always happens on a key press (bind the keys under Keybin
 - **Mark planned pack:** marks the planned pack (faint icons above the nameplates show the plan).
 - **Next skull on target** and **next free icon on target:** in-combat overrides on your target.
 - **Clear all marks:** follow marks come back on.
+- **Post briefing:** posts the briefing for the pack in view (see Briefing below).
 
 - **Team page:** the kill order (top first), each mark's role (Tank, CC or Follow) and player; Announce posts it,
   naming the marked mobs (`Kill order: {skull} Searing Blade Cultist > {cross} Searing Blade Enforcer`). Saved per
@@ -103,11 +105,36 @@ themselves, so marking always happens on a key press (bind the keys under Keybin
   each mob gets its own entry under its real name once Bulwark learns it, starting with the settings of the body
   entry it matched ("Searing Blade Cultist +2"); existing entries are never changed, and body entries stay as the
   fallback for mobs not learned yet.
+- **Briefing page:** per dungeon, every mob's casts with Bulwark's default priority; set your own (must, should,
+  info, ignore) and a note for the group. Saved by mob name, for every dungeon. A green check marks casts seen in
+  play; grey text in a note box is a curated hint. See Briefing below.
 - **Options:** planned icons above nameplates, Shift-hover to select a pack, only nearby mobs in view, record new
   mob types in dungeons, learn mob names and marks in dungeons.
 - **Keys:** the current bindings, and macros that still use TankMarkForever's button names.
 - **HUD:** a small always-on list of the marks; click a mark to switch it off for the next pulls, right-click to
   open the Team page, click the title to collapse it.
+
+### Briefing
+
+Before a pull, tell the group who interrupts what. Out of combat, in a dungeon and in a group, a tile appears when
+the pack in view (or a boss you target) has casts worth stopping; click it or press **Post briefing**:
+
+```
+[Bulwark] Interrupt: {skull} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); Ragefire Shaman: Healing Wave -> Kira (Earth Shock)
+[Bulwark] Best effort: Lightning Bolt, Shadow Bolt
+[Bulwark] Note: Curse of Weakness (Jergosh the Invoker): Curse on the tank: remove it.
+```
+
+- **What matters:** heals and crowd control with a cast time are *must*; other casts of 2 seconds or more are *should*
+  (best effort); curated hints and your own choices on the Briefing page change that.
+- **Who interrupts:** you (the tank) take the most important cast; then one player per caster, fastest interrupt
+  first (Earth Shock, Kick, Pummel, Shield Bash, Counterspell), stuns (Hammer of Justice, Bash) only when nobody else
+  is free. Other players' interrupts come from their class and level; yours from your spellbook and shield.
+- **Mobs** are named by Marking (Tab through the pack first); unnamed mobs are never guessed. Marks show as icons.
+- **Learns in play:** after each fight the game's damage meter tells Bulwark which enemy spells hit your group and
+  which ones you interrupted; new ones join that mob's casts (Forever-only dungeons fill up this way).
+- The tile hides in combat and boss encounters (the game blocks addon chat there anyway), and after posting until
+  the pack changes. Move it in Edit Mode; switch it off on the Briefing page.
 
 Moving over from TankMarkForever: keys bound to its buttons move to Bulwark's buttons automatically. Macros that
 `/click TMF_...` buttons need `TMF_` changed to `BWK_` by hand (Bulwark lists them).
@@ -165,6 +192,10 @@ Mob ability data (`Areas/Marking/Data/MobAbilities.lua`):
 - Forever-only dungeons: [warcraft.wiki.gg](https://warcraft.wiki.gg) mob pages (category "Forever mobs"), by the wiki's
   contributors, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Reduced to spell IDs, with spell
   type and cast time added from the game's data. Entries from the wiki are marked `wiki = true` in the data file.
+- Briefing hints (`MK.BriefingHints`, from `tools/data/briefing-hints.json` in the development workspace): ability
+  flags of the Ruins of Lordaeron and Hall of Thanes bosses adapted from
+  ForeverDungeonTools 1.0.1 by Samy Khayat (a modified
+  MythicDungeonTools by Nnoggie, GPL-2.0); facts only, notes in our own words. Ragefire Chasm boss hints are Bulwark's own.
 
 ## License
 
