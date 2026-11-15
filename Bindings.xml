@@ -4,4 +4,5 @@
 	<Binding name="CLICK BWK_SkullButton:LeftButton" category="ADDONS"/>
 	<Binding name="CLICK BWK_CycleButton:LeftButton" category="ADDONS"/>
 	<Binding name="CLICK BWK_ClearButton:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK BWK_BriefButton:LeftButton" category="ADDONS"/>
 </Bindings>

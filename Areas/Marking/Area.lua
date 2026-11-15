@@ -360,6 +360,7 @@ local OPTIONS = {
     { key = "nearOnly", text = "OPT_NEAR" },
     { key = "record", text = "OPT_RECORD" },
     { key = "learnNames", text = "OPT_LEARN" },
+    { key = "briefTile", text = "OPT_BRIEF_TILE" },
 }
 
 NS:AddPage(area.key, {
@@ -383,6 +384,8 @@ NS:AddPage(area.key, {
                     MK.Plates.Changed()
                 elseif opt.key == "record" and checked then
                     MK.MobDB:RecordVisible()
+                elseif opt.key == "briefTile" then
+                    MK.BriefingTile:Refresh()
                 end
             end)
             cb:SetPoint("TOPLEFT", 12, -38 - (i - 1) * 64)
@@ -404,6 +407,7 @@ local KEY_ROWS = {
     { button = "SkullButton", label = "KEY_SKULL" },
     { button = "CycleButton", label = "KEY_CYCLE" },
     { button = "ClearButton", label = "KEY_CLEAR" },
+    { button = "BriefButton", label = "KEY_BRIEF" },
 }
 
 NS:AddPage(area.key, {
@@ -524,7 +528,7 @@ area.commandHelp = {
     "|cffffd160/bwk mark learn|r <1-9||ignore||cc> [icon||class], |cffffd160forget|r  " .. NS.L["HELP_MARK_LEARN"],
     "|cffffd160/bwk mark|r select clear, overlay  " .. NS.L["HELP_MARK_MISC"],
     "|cffffd160/bwk mark abilities|r [name]  " .. NS.L["HELP_MARK_ABILITIES"],
-    "|cffffd160/bwk mark brief|r [preview]  " .. NS.L["HELP_MARK_BRIEF"],
+    "|cffffd160/bwk mark brief|r [preview||status||test]  " .. NS.L["HELP_MARK_BRIEF"],
 }
 
 function area.command(args)
@@ -542,7 +546,15 @@ function area.command(args)
     elseif cmd == "plan" then
         MK.Planner:Report()
     elseif cmd == "brief" then
-        if arg1 == "preview" then MK.Briefing.Preview() else MK.Briefing.Post() end
+        if arg1 == "preview" then
+            MK.Briefing.Preview()
+        elseif arg1 == "test" then
+            MK.BriefingTile.ToggleSoloTest()
+        elseif arg1 == "status" then
+            MK.BriefingTile.Status()
+        else
+            MK.BriefingTile.Post()
+        end
     elseif cmd == "select" and arg1 == "clear" then
         MK.Plates:ClearSelection()
     elseif cmd == "learn" then

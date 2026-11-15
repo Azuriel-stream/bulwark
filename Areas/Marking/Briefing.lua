@@ -5,6 +5,7 @@ local MK = NS.Marking
 -- interrupted. Out of combat only: others' casts are secret in combat and boss encounters block addon chat.
 -- Build step 1: the priority engine and /bwk mark brief [preview] for the planned pack + the target.
 -- Build step 2: who interrupts which mob (KIT, KitFor, Assign, Roster).
+-- Build step 3: the tile and the "Post briefing" key (BriefingTile.lua).
 -- Later steps: interrupter assignment (2), tile + keybind (3), per-ability edits on the Mobs page (4), learning
 -- from the damage meter (5), curated hints in the generated data (6).
 local Briefing = {}
@@ -369,6 +370,7 @@ end
 local function Display(text)
     return (text:gsub("{rt(%d)}", function(n) return Utils.IconText(tonumber(n)) end))
 end
+Briefing.Display = Display
 
 local PRIO_COLOR = { must = "ffff5555", should = "ffffd100", info = "ff66ccff" }
 
@@ -410,18 +412,19 @@ function Briefing.Preview()
 end
 
 -- /bwk mark brief: post it. Out of combat only (the plan is for the pull; in a boss fight chat is blocked anyway).
+-- Returns the lines sent (or printed, solo), nil if nothing went out.
 function Briefing.Post()
     if InCombatLockdown() then
         MK:Print(L["BRIEF_IN_COMBAT"])
-        return false
+        return nil
     end
     local mobs, summary = Briefing.Plan()
     local lines = Briefing.BuildLines(mobs)
     if #lines == 0 then
         MK:Print(L["BRIEF_NOTHING"])
         if summary.unknown > 0 then MK:Print(L["BRIEF_UNKNOWN"], summary.unknown) end
-        return false
+        return nil
     end
     MK.Team:Send(lines)
-    return true
+    return lines
 end

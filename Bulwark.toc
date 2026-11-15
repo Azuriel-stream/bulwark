@@ -64,6 +64,7 @@ Areas\Marking\Marker.lua
 Areas\Marking\Overlay.lua
 Areas\Marking\HUD.lua
 Areas\Marking\Keys.lua
+Areas\Marking\BriefingTile.lua
 Areas\Marking\Area.lua
 # Utilities: tank helpers (Avoidance)
 Areas\Utilities\Avoidance.lua

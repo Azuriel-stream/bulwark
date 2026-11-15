@@ -47,10 +47,11 @@ function Keys.OldMacros()
     return found
 end
 
--- Current keys for the four marking buttons (nil = unbound).
+-- Current keys for the marking buttons and the briefing key (nil = unbound).
 function Keys.Current()
     local keys = {}
     for _, button in ipairs(BUTTONS) do keys[button] = GetBindingKey(Binding("BWK_", button)) end
+    keys.BriefButton = GetBindingKey(Binding("BWK_", "BriefButton"))
     return keys
 end
 
