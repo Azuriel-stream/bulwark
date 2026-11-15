@@ -42,6 +42,14 @@ return function(sim, t)
     t.contains(sim.output, "Rath'mael %(Ruins of Lordaeron%)", "wiki mob found by name")
     t.contains(sim.output, "abilities from warcraft%.wiki%.gg", "wiki source credited in the output")
 
+    -- Bosses scripted in the server's C++ code: spells their AI class uses (cmangos/mangos-classic).
+    local doan = MK.MobAbilities[189] and MK.MobAbilities[189]["Arcanist Doan"]
+    t.ok(doan, "Arcanist Doan (Scarlet Monastery) has data now")
+    local poly = has(doan, 13323)
+    t.ok(poly and poly.trigger == "script" and poly.kind == "cc", "Polymorph from his script, crowd control")
+    t.ok(has(doan, 9433), "Arcane Explosion")
+    t.eq(A.Describe(poly):find("script", 1, true), nil, "no trigger text for script spells")
+
     -- Every spell string in the whole file parses (catches a generator format change).
     local n = 0
     for _, mobs in pairs(MK.MobAbilities) do

@@ -160,7 +160,8 @@ purposes, enchant list and tracker position are saved per character (`BulwarkCha
 Mob ability data (`Areas/Marking/Data/MobAbilities.lua`):
 
 - Classic dungeons and raids: the [cMaNGOS classic-db](https://github.com/cmangos/classic-db) world database, checked
-  against the game's own spell data.
+  against the game's own spell data; for bosses scripted in code, the spells their
+  [cMaNGOS mangos-classic](https://github.com/cmangos/mangos-classic) boss scripts use (GPL-2).
 - Forever-only dungeons: [warcraft.wiki.gg](https://warcraft.wiki.gg) mob pages (category "Forever mobs"), by the wiki's
   contributors, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Reduced to spell IDs, with spell
   type and cast time added from the game's data. Entries from the wiki are marked `wiki = true` in the data file.
