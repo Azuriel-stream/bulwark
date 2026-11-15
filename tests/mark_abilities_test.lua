@@ -29,11 +29,25 @@ return function(sim, t)
     t.ok(MK.MobAbilities[RFC]["Jergosh the Invoker"].boss, "Jergosh flagged as encounter boss")
     t.ok(has(MK.MobAbilities[RFC]["Jergosh the Invoker"], 20800), "Jergosh: Immolate")
 
+    -- Forever-only dungeons from the user's warcraft.wiki.gg export: Ruins of Lordaeron (2999).
+    local ROL = 2999
+    t.eq(MK.MobAbilityInstances[ROL], "Ruins of Lordaeron", "Forever-only instance named")
+    local rath = MK.MobAbilities[ROL] and MK.MobAbilities[ROL]["Rath'mael"]
+    t.ok(rath and rath.wiki and rath.boss, "Rath'mael: wiki entry, flagged boss from Forever's encounter list")
+    local fs = has(rath, 18399)
+    t.ok(fs and fs.trigger == "wiki" and fs.cast > 0, "Flamestrike: wiki trigger, cast time from the game's data")
+    t.eq(A.Describe(fs):find("wiki", 1, true), nil, "no trigger text for wiki spells")
+    sim.spells[18399] = "Flamestrike"
+    sim:Slash("/bwk mark abilities Rath'mael")
+    t.contains(sim.output, "Rath'mael %(Ruins of Lordaeron%)", "wiki mob found by name")
+    t.contains(sim.output, "abilities from warcraft%.wiki%.gg", "wiki source credited in the output")
+
     -- Every spell string in the whole file parses (catches a generator format change).
     local n = 0
     for _, mobs in pairs(MK.MobAbilities) do
         for name, entry in pairs(mobs) do
-            t.ok(type(entry.ids) == "table" and #entry.ids > 0, "ids for " .. name)
+            -- Wiki pages can lack the NPC ID (Bloodhound Runt): lookups go by name, ids are extra information.
+            t.ok(type(entry.ids) == "table" and (#entry.ids > 0 or entry.wiki), "ids for " .. name)
             for _, s in ipairs(entry) do
                 local p = A.ParseSpell(s)
                 t.ok(p and p.id > 0 and p.kind ~= "" and p.trigger ~= "", "parses: " .. s)

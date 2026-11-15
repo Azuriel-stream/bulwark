@@ -40,6 +40,7 @@ buttons move over by themselves; macros that `/click TMF_...` need `TMF_` change
 | `/bwk mark announce\|plan\|status` | post the kill order, print the pack plan, show status |
 | `/bwk mark learn <1-9\|ignore\|cc> [icon\|class]`, `/bwk mark forget` | teach or forget the hovered/targeted mob |
 | `/bwk mark select clear`, `/bwk mark overlay` | clear the Shift-hover selection, toggle planned icons |
+| `/bwk mark abilities [name]` | what a dungeon mob casts and when (your target, or by name) |
 | `/bwk utilities avoid` | print your attack table (same as the Avoidance page) |
 | `/bwk utilities tracker [reset]` | show or hide the enchant mats tracker; `reset` moves it back under the minimap |
 
@@ -153,3 +154,13 @@ these values, so the pages keep the last ones).
 
 Settings are saved account-wide (`BulwarkDB`); the last tab and page, Marking's team, and the Gear page's set
 purposes, enchant list and tracker position are saved per character (`BulwarkCharDB`).
+
+## Credits
+
+Mob ability data (`Areas/Marking/Data/MobAbilities.lua`):
+
+- Classic dungeons and raids: the [cMaNGOS classic-db](https://github.com/cmangos/classic-db) world database, checked
+  against the game's own spell data.
+- Forever-only dungeons: [warcraft.wiki.gg](https://warcraft.wiki.gg) mob pages (category "Forever mobs"), by the wiki's
+  contributors, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Reduced to spell IDs, with spell
+  type and cast time added from the game's data. Entries from the wiki are marked `wiki = true` in the data file.
