@@ -26,6 +26,8 @@ MK.DefaultConfig = {
     learnNames = true,      -- dungeons: learn each targeted mob's real name and mark from a hidden %t whisper (Learn.lua)
     briefTile = true,       -- Briefing tile when the pack in view needs a briefing (BriefingTile.lua)
     -- briefTilePoint = { x, y }: the tile's top-left corner (Edit Mode), nil = default
+    -- Your per-cast edits (Marking > Briefing): overrides[mobName][spellID] = { prio, note } (Briefing.lua)
+    briefing = { overrides = {} },
     -- HUD: always shown; clicking its title bar collapses it. point = { x, y } of the top-left corner, nil = default;
     -- locked = true: the title bar doesn't drag.
     hud = { collapsed = false },

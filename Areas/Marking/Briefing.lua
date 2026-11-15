@@ -50,16 +50,18 @@ local INFO_FLAGS = { "dispel-magic", "dispel-curse", "dispel-poison", "purge", "
 function Briefing.Priority(spell, hint, override)
     local flags = FlagSet(hint and hint.flags)
     local deadly = flags.deadly == true
+    -- Your note counts with any priority, also with Auto (override without prio).
+    local note = (override and override.note) or (hint and hint.note)
     if override and Briefing.RANK[override.prio] then
-        return override.prio, "user", override.note or (hint and hint.note), deadly
+        return override.prio, "user", note, deadly
     end
     if hint then
-        if flags.deadly or flags.interrupt then return "must", "hint", hint.note, deadly end
+        if flags.deadly or flags.interrupt then return "must", "hint", note, deadly end
         for _, f in ipairs(INFO_FLAGS) do
-            if flags[f] then return "info", "hint", hint.note, deadly end
+            if flags[f] then return "info", "hint", note, deadly end
         end
     end
-    return Briefing.DefaultPriority(spell), "data", nil, false
+    return Briefing.DefaultPriority(spell), "data", override and override.note or nil, false
 end
 
 local function Better(a, b)
@@ -233,7 +235,7 @@ end
 -- kill order (Assign fills assigned/covers):
 --   [Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); {rt4} Ragefire Shaman: ...
 --   [Bulwark] Best effort: Healing Wave, Lightning Bolt, Shadow Bolt   (musts nobody was free for come first)
---   [Bulwark] Note: Leech Poison (Witherfang): Poisons the tank.
+--   [Bulwark] Note: Leech Poison (Witherfang): Poisons the tank.   (every listed cast with a note)
 -- Plain spell names, never links (kb/gotchas.md#spell-link-chat); no bare "|" (#chat-pipe). Empty when there is
 -- nothing to say.
 function Briefing.BuildLines(mobs)
@@ -256,7 +258,7 @@ function Briefing.BuildLines(mobs)
             for _, n in ipairs(must) do AddBest(n) end   -- nobody (or not enough) for this mob
         end
         for _, item in ipairs(mob.spells) do
-            if item.prio == "info" and item.note and item.note ~= "" then
+            if item.note and item.note ~= "" then   -- your note (or a hint's) on any listed cast
                 notes[#notes + 1] = SpellName(item.spell.id) .. " (" .. mob.name .. "): " .. item.note
             end
         end
@@ -278,15 +280,82 @@ end
 -- Shell: which mobs are in front of the tank.
 -- =========================================================================
 
--- Curated hint / user override for a mob's spell. Hints arrive with build step 6 (MK.BriefingHints, generated),
--- overrides with step 4 (BulwarkDB.marking.briefing.overrides[mob][spellID]).
+-- =========================================================================
+-- Your edits (build step 4, Marking > Briefing page): per mob name and spell, a priority and/or a note.
+-- BulwarkDB.marking.briefing.overrides[mobName][spellID] = { prio = "must"|"should"|"info"|"ignore"|nil, note = "..." }
+-- By name, not per dungeon: a mob's casts are the same wherever its name appears.
+-- =========================================================================
+
+function Briefing.Overrides()
+    local db = MK.db
+    if not db then return {} end
+    db.briefing = db.briefing or {}
+    db.briefing.overrides = db.briefing.overrides or {}
+    return db.briefing.overrides
+end
+
+function Briefing.GetOverride(mob, spellID)
+    local byMob = Briefing.Overrides()[mob]
+    return byMob and byMob[spellID]
+end
+
+-- prio nil = automatic; note nil/"" = none. Both empty: the entry goes away.
+function Briefing.SetOverride(mob, spellID, prio, note)
+    local all = Briefing.Overrides()
+    if prio ~= nil and not Briefing.RANK[prio] then prio = nil end
+    note = note and strtrim(note) or nil
+    if note == "" then note = nil end
+    all[mob] = all[mob] or {}
+    if prio or note then
+        all[mob][spellID] = { prio = prio, note = note }
+    else
+        all[mob][spellID] = nil
+        if next(all[mob]) == nil then all[mob] = nil end
+    end
+    MK:Fire("BRIEFING_CHANGED")
+end
+
+-- Curated hint (build step 6: MK.BriefingHints, generated) and your override for a mob's spell.
 local function Lookup(instanceID, name)
     local hints = MK.BriefingHints and MK.BriefingHints[instanceID]
     hints = hints and hints[name]
-    local saved = MK.db and MK.db.briefing and MK.db.briefing.overrides
-    saved = saved and saved[name]
+    local saved = Briefing.Overrides()[name]
     if not hints and not saved then return nil end
     return function(id) return hints and hints[id], saved and saved[id] end
+end
+
+-- Rows for the Briefing page: every mob of an instance with ability data (bosses last, else by name), then each of
+-- its casts once (passives left out): { mob = name, boss = bool } and { mob, spell, auto, autoSource, override }.
+-- auto = the priority without your override (data rules or a hint).
+function Briefing.AbilityRows(instanceID)
+    local mobs = MK.MobAbilities and MK.MobAbilities[instanceID]
+    if not mobs then return {} end
+    local names = {}
+    for name in pairs(mobs) do names[#names + 1] = name end
+    table.sort(names, function(a, b)
+        local ba, bb = mobs[a].boss == true, mobs[b].boss == true
+        if ba ~= bb then return bb end
+        return a < b
+    end)
+    local rows = {}
+    for _, name in ipairs(names) do
+        local entry = mobs[name]
+        local hints = MK.BriefingHints and MK.BriefingHints[instanceID] and MK.BriefingHints[instanceID][name]
+        local spells, seen = {}, {}
+        for _, spell in ipairs(Abilities.Spells(entry)) do
+            if spell.kind ~= "passive" and not seen[spell.id] then
+                seen[spell.id] = true
+                local auto, source = Briefing.Priority(spell, hints and hints[spell.id], nil)
+                spells[#spells + 1] = { mob = name, spell = spell, auto = auto, autoSource = source,
+                                        override = Briefing.GetOverride(name, spell.id) }
+            end
+        end
+        if #spells > 0 then
+            rows[#rows + 1] = { mob = name, boss = entry.boss == true }
+            for _, r in ipairs(spells) do rows[#rows + 1] = r end
+        end
+    end
+    return rows
 end
 
 -- The mobs to brief: the planner's candidates (near, alive, hostile, out of combat, the Shift-hover selection if

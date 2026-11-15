@@ -351,6 +351,238 @@ mobsPage = NS:AddPage(area.key, {
 })
 
 ---------------------------------------------------------------------------------------------------------------
+-- Briefing: per dungeon, every mob's casts with Bulwark's default priority; your choice overrides it, plus a note
+-- for the group (Briefing.lua, build step 4). Paged like Mobs; dungeon picked from the ability data.
+-- Columns are anchored to the card's edges (the window scales: fixed widths ran past the card [in-game 2026-11-15]).
+---------------------------------------------------------------------------------------------------------------
+
+local BRIEF_ROWS = 12
+local BRIEF_ROW_H = 26
+local BRIEF_HEAD_H = 22
+-- x of each column inside a row (rows start 10 px into the card); the note column runs to the row's right edge.
+local COL_SPELL, COL_DEFAULT, COL_YOURS, COL_NOTE = 18, 194, 262, 376
+local COL_SPELL_W, COL_DEFAULT_W, COL_YOURS_W = 170, 64, 104
+local briefData = {}   -- [row index] = AbilityRows item (plain table, see rowData)
+local briefPage
+local PRIO_TEXT_COLOR = { must = "ffff5555", should = "ffffd100", info = "ff66ccff", ignore = "ff9d9d9d" }
+
+local function PrioText(prio)
+    return "|c" .. PRIO_TEXT_COLOR[prio] .. L["BRIEF_PRIO_" .. prio] .. "|r"
+end
+
+local function DefaultLabel()
+    return "|cff9d9d9d" .. L["BRIEF_PAGE_DEFAULT"] .. "|r"
+end
+
+local function BriefPrioOptions()
+    local opts = { { key = "", label = DefaultLabel() } }
+    for _, prio in ipairs({ "must", "should", "info", "ignore" }) do opts[#opts + 1] = { key = prio, label = PrioText(prio) } end
+    return opts
+end
+
+local function BriefInstances()
+    local list = {}
+    for id, name in pairs(MK.MobAbilityInstances or {}) do list[#list + 1] = { id = id, name = name } end
+    table.sort(list, function(a, b) return a.name < b.name end)
+    return list
+end
+
+local function SaveNote(i, box)
+    local r = briefData[i]
+    if not (r and r.spell) then return end
+    local o = r.override or {}
+    MK.Briefing.SetOverride(r.mob, r.spell.id, o.prio, box:GetText())
+end
+
+-- Grey "note for the group" in an empty, unfocused box.
+local function UpdatePlaceholder(box)
+    box.placeholder:SetShown(box:GetText() == "" and not box:HasFocus())
+end
+
+local function BriefRow(parent, i)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetHeight(BRIEF_ROW_H)
+    row.mob = Kit.Text(row, 12, C.goldText)
+    row.mob:SetPoint("LEFT", 2, 0)
+    row.spellBtn = CreateFrame("Button", nil, row)
+    row.spellBtn:SetPoint("LEFT", COL_SPELL, 0)
+    row.spellBtn:SetSize(COL_SPELL_W, BRIEF_ROW_H)
+    row.spell = Kit.Text(row.spellBtn, 12)
+    row.spell:SetPoint("LEFT", 0, 0)
+    row.spell:SetWidth(COL_SPELL_W)
+    row.spell:SetWordWrap(false)
+    row.spellBtn:SetScript("OnEnter", function(self)
+        local r = briefData[i]
+        if not (r and r.spell) then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(MK.Abilities.Describe(r.spell), 1, 1, 1, 1, true)
+        GameTooltip:AddLine(string.format(L["BRIEF_PAGE_DEFAULT_TIP"], PrioText(r.auto),
+            L["BRIEF_PAGE_SRC_" .. r.autoSource]), nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    row.spellBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    row.auto = Kit.Text(row, 12)
+    row.auto:SetPoint("LEFT", COL_DEFAULT, 0)
+    row.auto:SetWidth(COL_DEFAULT_W)
+    row.auto:SetJustifyH("LEFT")
+    row.prio = Kit.AttachList(Kit.Button(row, "", COL_YOURS_W), BriefPrioOptions,
+        function() local r = briefData[i]; return r and r.override and r.override.prio or "" end,
+        function(prio)
+            local r = briefData[i]
+            if not (r and r.spell) then return end
+            MK.Briefing.SetOverride(r.mob, r.spell.id, prio ~= "" and prio or nil, r.override and r.override.note)
+        end, 110,
+        function()
+            local r = briefData[i]
+            if r and r.spell then MK.Briefing.SetOverride(r.mob, r.spell.id, nil, r.override and r.override.note) end
+        end)
+    row.prio:SetPoint("LEFT", COL_YOURS, 0)
+    Kit.Tooltip(row.prio, L["BRIEF_COL_YOURS"], L["BRIEF_PAGE_PRIO_DESC"])
+    row.note = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    row.note:SetHeight(20)
+    row.note:SetPoint("LEFT", COL_NOTE + 6, 0)    -- InputBoxTemplate's left cap sits 5 px outside the box
+    row.note:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+    row.note:SetAutoFocus(false)
+    row.note:SetMaxLetters(80)
+    row.note.placeholder = Kit.Text(row.note, 11, C.muted)
+    row.note.placeholder:SetPoint("LEFT", 2, 0)
+    row.note.placeholder:SetText(L["BRIEF_PAGE_NOTE_HINT"])
+    row.note:SetScript("OnTextChanged", UpdatePlaceholder)
+    row.note:SetScript("OnEditFocusGained", UpdatePlaceholder)
+    row.note:SetScript("OnEnterPressed", function(self)
+        SaveNote(i, self)
+        self:ClearFocus()
+    end)
+    row.note:SetScript("OnEscapePressed", function(self)
+        self.cancel = true
+        self:ClearFocus()
+        briefPage:refresh()
+    end)
+    row.note:SetScript("OnEditFocusLost", function(self)
+        UpdatePlaceholder(self)
+        if self.cancel then self.cancel = false return end
+        SaveNote(i, self)
+    end)
+    row.note:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["BRIEF_COL_NOTE"], 1, 1, 1)
+        GameTooltip:AddLine(L["BRIEF_PAGE_NOTE_DESC"], nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    row.note:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return row
+end
+
+local function StepBriefZone(delta)
+    local list = BriefInstances()
+    local idx = 1
+    for i, z in ipairs(list) do if z.id == briefPage.instance then idx = i end end
+    idx = (idx - 1 + delta) % #list + 1
+    briefPage.instance, briefPage.page = list[idx].id, 1
+    briefPage:refresh()
+end
+
+briefPage = NS:AddPage(area.key, {
+    key = "briefing",
+    title = NS.L["PAGE_BRIEFING"],
+    build = function(page, parent)
+        page.page = 1
+        page.prevZone = Kit.Button(parent, L["BTN_PREV"], 28, function() StepBriefZone(-1) end)
+        page.prevZone:SetPoint("TOPLEFT", 0, 0)
+        page.zoneDrop = Kit.Dropdown(parent, 300, function()
+            local opts = {}
+            for _, z in ipairs(BriefInstances()) do
+                local label = z.name
+                if z.id == MK.Plates.instanceID then label = label .. " " .. L["MOBS_ZONE_HERE"] end
+                opts[#opts + 1] = { key = z.id, label = label }
+            end
+            return opts
+        end, function() return page.instance end, function(id)
+            page.instance, page.page = id, 1
+            page:refresh()
+        end)
+        page.zoneDrop:SetPoint("LEFT", page.prevZone, "RIGHT", 6, 0)
+        page.nextZone = Kit.Button(parent, L["BTN_NEXT"], 28, function() StepBriefZone(1) end)
+        page.nextZone:SetPoint("LEFT", page.zoneDrop, "RIGHT", 6, 0)
+        -- The tile switch lives here (was Marking > Options, which is about pack planning).
+        page.tile = Kit.Checkbox(parent, L["OPT_BRIEF_TILE"], L["OPT_BRIEF_TILE_DESC"], function(checked)
+            MK:Set("briefTile", checked)
+            MK.BriefingTile:Refresh()
+        end)
+        page.tile:SetPoint("LEFT", page.nextZone, "RIGHT", 18, 0)
+
+        local cardH = BRIEF_HEAD_H + BRIEF_ROWS * BRIEF_ROW_H + 18
+        local card = Card(parent, nil, -34, cardH)
+        -- Column headings
+        local heads = { { COL_SPELL, "BRIEF_COL_SPELL" }, { COL_DEFAULT, "BRIEF_COL_DEFAULT" },
+                        { COL_YOURS, "BRIEF_COL_YOURS" }, { COL_NOTE, "BRIEF_COL_NOTE" } }
+        for _, h in ipairs(heads) do
+            local fs = Kit.Text(card, 11, C.muted)
+            fs:SetPoint("TOPLEFT", 10 + h[1], -10)
+            fs:SetText(L[h[2]])
+        end
+        Kit.HLine(card, -10 - BRIEF_HEAD_H + 4, C.line, 10)
+        page.rows = {}
+        for i = 1, BRIEF_ROWS do
+            local row = BriefRow(card, i)
+            row:SetPoint("TOPLEFT", 10, -10 - BRIEF_HEAD_H - (i - 1) * BRIEF_ROW_H)
+            row:SetPoint("RIGHT", card, "RIGHT", -10, 0)
+            page.rows[i] = row
+        end
+
+        local by = -34 - cardH - 8
+        page.nextPage = Kit.Button(parent, L["BTN_NEXT"], 28, function() page.page = page.page + 1; page:refresh() end)
+        page.nextPage:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, by)
+        page.pageText = Kit.Text(parent, 12)
+        page.pageText:SetPoint("RIGHT", page.nextPage, "LEFT", -8, 0)
+        page.prevPage = Kit.Button(parent, L["BTN_PREV"], 28, function() page.page = page.page - 1; page:refresh() end)
+        page.prevPage:SetPoint("RIGHT", page.pageText, "LEFT", -8, 0)
+        -- What the priorities do, in one place (instead of a tooltip per row)
+        page.help = Kit.Paragraph(parent, L["BRIEF_PAGE_HELP"], 400, 11, C.muted)
+        page.help:SetPoint("TOPLEFT", 0, by)
+        page.help:SetPoint("RIGHT", page.prevPage, "LEFT", -16, 0)
+    end,
+    refresh = function(page)
+        page.tile:SetChecked(MK:Get("briefTile") and true or false)
+        local here = MK.Plates.instanceID
+        if not page.instance or not (MK.MobAbilities and MK.MobAbilities[page.instance]) then
+            page.instance = (here and MK.MobAbilities and MK.MobAbilities[here]) and here or 389   -- Ragefire Chasm
+        end
+        page.zoneDrop:Refresh()
+        local rows = MK.Briefing.AbilityRows(page.instance)
+        local pages = math.max(1, math.ceil(#rows / BRIEF_ROWS))
+        page.page = math.max(1, math.min(page.page or 1, pages))
+        page.pageText:SetText(string.format(L["MOBS_PAGE"], page.page, pages))
+        page.prevPage:SetActive(page.page > 1)
+        page.nextPage:SetActive(page.page < pages)
+        for i, row in ipairs(page.rows) do
+            local r = rows[(page.page - 1) * BRIEF_ROWS + i]
+            briefData[i] = r
+            row:SetShown(r ~= nil)
+            if r then
+                local isMob = r.spell == nil
+                row.mob:SetShown(isMob)
+                row.spellBtn:SetShown(not isMob)
+                row.auto:SetShown(not isMob)
+                row.prio:SetShown(not isMob)
+                row.note:SetShown(not isMob)
+                if isMob then
+                    row.mob:SetText(r.mob .. (r.boss and ("  |cff9d9d9d" .. L["BRIEF_BOSS"] .. "|r") or ""))
+                else
+                    row.spell:SetText(MK.Briefing.SpellName(r.spell.id))
+                    row.auto:SetText(PrioText(r.auto))
+                    local o = r.override
+                    row.prio:SetLabel(o and o.prio and PrioText(o.prio) or DefaultLabel())
+                    if not row.note:HasFocus() then row.note:SetText(o and o.note or "") end
+                    UpdatePlaceholder(row.note)
+                end
+            end
+        end
+    end,
+})
+MK:On("BRIEFING_CHANGED", function() RefreshIfShown(briefPage) end)
+
+---------------------------------------------------------------------------------------------------------------
 -- Options
 ---------------------------------------------------------------------------------------------------------------
 
@@ -360,18 +592,40 @@ local OPTIONS = {
     { key = "nearOnly", text = "OPT_NEAR" },
     { key = "record", text = "OPT_RECORD" },
     { key = "learnNames", text = "OPT_LEARN" },
-    { key = "briefTile", text = "OPT_BRIEF_TILE" },
 }
+
+-- Rows stack by each description's real height, at the card's real width (the window scales: a fixed width ran past
+-- the card's right edge [in-game 2026-11-15]). Runs again whenever the card's width changes.
+local function LayoutOptions(page)
+    local card = page.card
+    local w = tonumber(card:GetWidth()) or 0
+    if w <= 0 then w = 640 end
+    if page.laidOutAt == w then return end
+    page.laidOutAt = w
+    local rowY = -38
+    for _, opt in ipairs(OPTIONS) do
+        local cb, note = page.boxes[opt.key], page.notes[opt.key]
+        cb:ClearAllPoints()
+        cb:SetPoint("TOPLEFT", 12, rowY)
+        note:ClearAllPoints()
+        note:SetPoint("TOPLEFT", 44, rowY - 24)
+        note:SetWidth(w - 44 - 16)
+        local h = tonumber(note:GetStringHeight()) or 0
+        if h <= 0 then h = 28 end
+        rowY = rowY - 24 - h - 12
+    end
+    card:SetHeight(-rowY)
+end
 
 NS:AddPage(area.key, {
     key = "options",
     title = NS.L["PAGE_OPTIONS"],
     build = function(page, parent)
         local y = Kit.PageHeader(parent, NS.L["PAGE_OPTIONS"], NS.L["MARK_OPTIONS_DESC"])
-        local card = Card(parent, NS.L["MARK_CARD_PLANNING"], y, 40 + #OPTIONS * 64)
-        page.boxes = {}
-        for i, opt in ipairs(OPTIONS) do
-            local cb = Kit.Checkbox(card, L[opt.text], nil, function(checked)
+        local card = Card(parent, NS.L["MARK_CARD_PLANNING"], y, 40)
+        page.card, page.boxes, page.notes = card, {}, {}
+        for _, opt in ipairs(OPTIONS) do
+            page.boxes[opt.key] = Kit.Checkbox(card, L[opt.text], nil, function(checked)
                 MK:Set(opt.key, checked)
                 if opt.key == "overlay" then
                     MK.Overlay:Show(MK.Planner.plan)
@@ -384,17 +638,16 @@ NS:AddPage(area.key, {
                     MK.Plates.Changed()
                 elseif opt.key == "record" and checked then
                     MK.MobDB:RecordVisible()
-                elseif opt.key == "briefTile" then
-                    MK.BriefingTile:Refresh()
                 end
             end)
-            cb:SetPoint("TOPLEFT", 12, -38 - (i - 1) * 64)
-            Note(card, L[opt.text .. "_DESC"], 44, -64 - (i - 1) * 64, 580)
-            page.boxes[opt.key] = cb
+            page.notes[opt.key] = Note(card, L[opt.text .. "_DESC"], 44, 0, 560)
         end
+        card:HookScript("OnSizeChanged", function() LayoutOptions(page) end)
+        LayoutOptions(page)
     end,
     refresh = function(page)
         for key, cb in pairs(page.boxes) do cb:SetChecked(MK:Get(key) and true or false) end
+        LayoutOptions(page)
     end,
 })
 

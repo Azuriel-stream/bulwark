@@ -239,6 +239,7 @@ function Tile:OnInitialize()
     MK:On("PLAN_CHANGED", Queue)
     MK:On("MOB_LEARNED", Queue)
     MK:On("SETUP_CHANGED", Queue)
+    MK:On("BRIEFING_CHANGED", Queue)
 end
 
 function Tile:OnEnable()
