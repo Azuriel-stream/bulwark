@@ -4,6 +4,7 @@ local MK = NS.Marking
 -- Briefing (kb/addons/Bulwark-Briefing.md): before a pull, tell the group which casts of the pack in view must be
 -- interrupted. Out of combat only: others' casts are secret in combat and boss encounters block addon chat.
 -- Build step 1: the priority engine and /bwk mark brief [preview] for the planned pack + the target.
+-- Build step 2: who interrupts which mob (KIT, KitFor, Assign, Roster).
 -- Later steps: interrupter assignment (2), tile + keybind (3), per-ability edits on the Mobs page (4), learning
 -- from the damage meter (5), curated hints in the generated data (6).
 local Briefing = {}
@@ -121,19 +122,137 @@ function Briefing.MobLabel(mob)
     return label
 end
 
--- Chat lines for a briefed pack. mobs = { { name, icon?, count?, spells = MobSpells list } } in kill order.
---   [Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave; {rt4} Ragefire Shaman: Healing Wave
---   [Bulwark] Best effort: Lightning Bolt, Shadow Bolt
+-- =========================================================================
+-- Who interrupts (build step 2)
+-- =========================================================================
+
+-- Interrupts by class [data: wowf SpellLevels + SpellCooldowns, 2026-11-15]. kick = stops the cast and locks the
+-- school; stun = stops it too, but with a long cooldown: used only when no kicker is left. Not assumed: Felhunter Spell
+-- Lock (pet unknown), talents (Feral Charge, Concussion Blow, Silence), the SoD-era level-1 spells (Rebuke, Skull Bash,
+-- Disrupt) [unverified for Forever players]. Warriors: Shield Bash needs a shield, Pummel Berserker Stance. The tank
+-- (you) is read exactly (known spells, shield worn); another warrior is assumed a damage dealer: Pummel from 38.
+-- ids = every player rank (SkillLineAbility); the first names it in chat.
+Briefing.KIT = {
+    SHAMAN  = { { id = 8042, ids = { 8042, 8044, 8045, 8046, 10412, 10413, 10414 }, level = 4, cd = 6,
+                  kind = "kick" } },                                                         -- Earth Shock
+    ROGUE   = { { id = 1766, ids = { 1766, 1767, 1768, 1769 }, level = 12, cd = 10, kind = "kick" } },   -- Kick
+    WARRIOR = { { id = 6552, ids = { 6552, 6554 }, level = 38, cd = 10, kind = "kick" },               -- Pummel
+                { id = 72, ids = { 72, 1671, 1672 }, level = 12, cd = 12, kind = "kick", shield = true } }, -- Shield Bash
+    MAGE    = { { id = 2139, ids = { 2139 }, level = 24, cd = 30, kind = "kick" } },                    -- Counterspell
+    PALADIN = { { id = 853, ids = { 853, 5588, 5589, 10308 }, level = 8, cd = 60, kind = "stun" } },  -- Hammer of Justice
+    DRUID   = { { id = 5211, ids = { 5211, 6798, 8983 }, level = 14, cd = 60, kind = "stun" } },     -- Bash (bear form)
+}
+
+-- The interrupt a player brings, or nil. own = { known = fn(ids), shield = bool } for the player (exact); others go
+-- by class and level. Best = a kick before a stun, then the shorter cooldown.
+function Briefing.KitFor(class, level, own)
+    local best
+    for _, k in ipairs(Briefing.KIT[class] or {}) do
+        local has
+        if own then
+            has = own.known(k.ids) and (not k.shield or own.shield)
+        else
+            has = (tonumber(level) or 0) >= k.level and not k.shield
+        end
+        if has and (not best or (k.kind == "kick" and best.kind ~= "kick")
+            or (k.kind == best.kind and k.cd < best.cd)) then
+            best = k
+        end
+    end
+    return best
+end
+
+local function TopItem(mob, prio)
+    for _, item in ipairs(mob.spells) do
+        if item.prio == prio then return item end
+    end
+end
+
+-- Gives interrupters to the mobs with must casts. members = { { short, kit, tank? } } (kit nil = can't interrupt).
+-- The tank takes the most important must (ties: kill order); then one interrupter per mob ("2x" groups need one each),
+-- most important mob first, kickers by shortest cooldown, stunners last. A tank left without a must takes the top
+-- should of a boss in view. Sets mob.assigned = { { short, kit } } and mob.covers = spell names watched.
+-- Returns the members left over.
+function Briefing.Assign(mobs, members)
+    local order = {}
+    for i, mob in ipairs(mobs) do
+        mob.assigned, mob.covers, mob.pos = {}, nil, i
+        if TopItem(mob, "must") then order[#order + 1] = mob end
+    end
+    table.sort(order, function(a, b)
+        local ia, ib = TopItem(a, "must"), TopItem(b, "must")
+        if Better(ia, ib) ~= Better(ib, ia) then return Better(ia, ib) end
+        return a.pos < b.pos
+    end)
+    local function Give(mob, member)
+        mob.assigned[#mob.assigned + 1] = member
+        mob.covers = mob.covers or Names(mob.spells, "must")
+    end
+    local tank, others = nil, {}
+    for _, m in ipairs(members) do
+        if m.kit then
+            if m.tank and not tank then tank = m else others[#others + 1] = m end
+        end
+    end
+    table.sort(others, function(a, b)
+        if a.kit.kind ~= b.kit.kind then return a.kit.kind == "kick" end
+        if a.kit.cd ~= b.kit.cd then return a.kit.cd < b.kit.cd end
+        return a.short < b.short
+    end)
+    if tank and order[1] then
+        Give(order[1], tank)
+        tank = nil
+    end
+    local nextOther = 1
+    for _, mob in ipairs(order) do
+        while #mob.assigned < (mob.count or 1) and others[nextOther] do
+            Give(mob, others[nextOther])
+            nextOther = nextOther + 1
+        end
+    end
+    if tank then   -- no must in view: the tank watches the boss's worst cast
+        local bestMob, bestItem
+        for _, mob in ipairs(mobs) do
+            local item = mob.boss and TopItem(mob, "should")
+            if item and (not bestItem or Better(item, bestItem)) then bestMob, bestItem = mob, item end
+        end
+        if bestMob then
+            bestMob.assigned[1] = tank
+            bestMob.covers = { SpellName(bestItem.spell.id) }
+            tank = nil
+        end
+    end
+    local left = {}
+    if tank then left[1] = tank end
+    for i = nextOther, #others do left[#left + 1] = others[i] end
+    return left
+end
+
+-- Chat lines for a briefed pack. mobs = { { name, icon?, count?, spells = MobSpells list, assigned?, covers? } } in
+-- kill order (Assign fills assigned/covers):
+--   [Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); {rt4} Ragefire Shaman: ...
+--   [Bulwark] Best effort: Healing Wave, Lightning Bolt, Shadow Bolt   (musts nobody was free for come first)
 --   [Bulwark] Note: Leech Poison (Witherfang): Poisons the tank.
 -- Plain spell names, never links (kb/gotchas.md#spell-link-chat); no bare "|" (#chat-pipe). Empty when there is
 -- nothing to say.
 function Briefing.BuildLines(mobs)
-    local interrupt, best, notes, mustNames, bestSeen = {}, {}, {}, {}, {}
+    local interrupt, best, notes, covered, mustNames, bestSeen = {}, {}, {}, {}, {}, {}
+    local function AddBest(n)
+        if not bestSeen[n] then bestSeen[n], best[#best + 1] = true, n end
+    end
     for _, mob in ipairs(mobs) do
+        local assigned = mob.assigned or {}
+        if #assigned > 0 then
+            local who = {}
+            for _, m in ipairs(assigned) do who[#who + 1] = m.short .. " (" .. SpellName(m.kit.id) .. ")" end
+            interrupt[#interrupt + 1] = Briefing.MobLabel(mob) .. ": " .. table.concat(mob.covers, ", ") .. " -> "
+                .. table.concat(who, ", ")
+            for _, n in ipairs(mob.covers) do covered[n] = true end
+        end
         local must = Names(mob.spells, "must")
-        if #must > 0 then
-            interrupt[#interrupt + 1] = Briefing.MobLabel(mob) .. ": " .. table.concat(must, ", ")
-            for _, n in ipairs(must) do mustNames[n] = true end
+        for _, n in ipairs(must) do mustNames[n] = true end
+        if #must > 0 and #assigned < (mob.count or 1) then
+            for _, n in ipairs(must) do AddBest(n) end   -- nobody (or not enough) for this mob
         end
         for _, item in ipairs(mob.spells) do
             if item.prio == "info" and item.note and item.note ~= "" then
@@ -143,7 +262,7 @@ function Briefing.BuildLines(mobs)
     end
     for _, mob in ipairs(mobs) do
         for _, n in ipairs(Names(mob.spells, "should")) do
-            if not mustNames[n] and not bestSeen[n] then bestSeen[n], best[#best + 1] = true, n end
+            if not mustNames[n] and not covered[n] then AddBest(n) end
         end
     end
     local Wrap, lines = MK.Team.Wrap, {}
@@ -223,6 +342,29 @@ function Briefing.Collect()
     return mobs, summary
 end
 
+-- The group as interrupters: { short, class, level, kit, tank } per living, connected member. You are the tank
+-- (Bulwark is a tank's addon), read exactly from your spellbook and off-hand.
+function Briefing.Roster()
+    local list = {}
+    for _, m in ipairs(MK.Team:Members()) do
+        if m.alive then
+            local isMe = m.unit == "player" or UnitIsUnit(m.unit, "player") == true
+            local own = isMe and { known = NS.Utils.KnowsAny, shield = NS.Utils.HasShield() } or nil
+            list[#list + 1] = { short = m.short or m.name, class = m.class, level = m.level, tank = isMe,
+                                kit = Briefing.KitFor(m.class, m.level, own) }
+        end
+    end
+    return list
+end
+
+-- Collect + Assign: mobs (with assignments), summary, roster, members left over.
+function Briefing.Plan()
+    local mobs, summary = Briefing.Collect()
+    local roster = Briefing.Roster()
+    local left = Briefing.Assign(mobs, roster)
+    return mobs, summary, roster, left
+end
+
 -- Chat text for the local print: {rtN} as the icon.
 local function Display(text)
     return (text:gsub("{rt(%d)}", function(n) return Utils.IconText(tonumber(n)) end))
@@ -232,7 +374,7 @@ local PRIO_COLOR = { must = "ffff5555", should = "ffffd100", info = "ff66ccff" }
 
 -- /bwk mark brief preview: what Briefing sees and would post, printed locally.
 function Briefing.Preview()
-    local mobs, summary = Briefing.Collect()
+    local mobs, summary, roster = Briefing.Plan()
     MK:Print(L["BRIEF_PREVIEW_HEADER"], summary.total)
     for _, mob in ipairs(mobs) do
         local parts = {}
@@ -248,6 +390,16 @@ function Briefing.Preview()
     table.sort(names)
     if #names > 0 then print("  " .. string.format(L["BRIEF_NO_DATA"], table.concat(names, ", "))) end
     if summary.unknown > 0 then print("  " .. string.format(L["BRIEF_UNKNOWN"], summary.unknown)) end
+    local can, cannot = {}, {}
+    for _, m in ipairs(roster) do
+        if m.kit then
+            can[#can + 1] = string.format("%s (%s, %d s)", m.short, SpellName(m.kit.id), m.kit.cd)
+        else
+            cannot[#cannot + 1] = m.short
+        end
+    end
+    print("  " .. string.format(L["BRIEF_INTERRUPTERS"], #can > 0 and table.concat(can, ", ") or L["BRIEF_NONE"]))
+    if #cannot > 0 then print("  " .. string.format(L["BRIEF_NO_KIT"], table.concat(cannot, ", "))) end
     local lines = Briefing.BuildLines(mobs)
     if #lines == 0 then
         print("  " .. L["BRIEF_NOTHING"])
@@ -263,7 +415,7 @@ function Briefing.Post()
         MK:Print(L["BRIEF_IN_COMBAT"])
         return false
     end
-    local mobs, summary = Briefing.Collect()
+    local mobs, summary = Briefing.Plan()
     local lines = Briefing.BuildLines(mobs)
     if #lines == 0 then
         MK:Print(L["BRIEF_NOTHING"])

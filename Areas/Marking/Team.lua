@@ -28,7 +28,7 @@ function Team.FullName(unit)
     return first
 end
 
--- Group members including the player: { unit, name, short, class, race, alive }
+-- Group members including the player: { unit, name, short, class, race, level, alive }
 function Team:Members()
     local units = {}
     if IsInRaid() then
@@ -45,6 +45,7 @@ function Team:Members()
             local _, race = UnitRace(unit)
             table.insert(list, {
                 unit = unit, name = name, short = (UnitName(unit)), class = class, race = race,
+                level = Utils.Safe(UnitLevel(unit), "number", 0),
                 alive = not UnitIsDeadOrGhost(unit) and UnitIsConnected(unit) ~= false,
             })
         end

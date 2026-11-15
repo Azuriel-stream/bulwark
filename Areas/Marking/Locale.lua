@@ -229,3 +229,6 @@ L["BRIEF_UNKNOWN"] = "%d mobs not identified (Tab-target them first, then brief 
 L["BRIEF_NOTHING"] = "Nothing to brief: no mob in view casts anything worth interrupting."
 L["BRIEF_WOULD_POST"] = "Would post:"
 L["BRIEF_IN_COMBAT"] = "Briefings go out before the pull, not in combat."
+L["BRIEF_INTERRUPTERS"] = "Interrupters: %s"
+L["BRIEF_NO_KIT"] = "No interrupt (class/level): %s"
+L["BRIEF_NONE"] = "none"

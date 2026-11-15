@@ -83,17 +83,89 @@ return function(_, t)
     t.ok(list[1].spell.id == 11986 and list[2].prio == "must" and list[2].source == "user",
         "lookup override applied; heal still first among musts")
 
-    -- 4. Message lines.
-    local lines = B.BuildLines({
-        { name = "Ragefire Shaman", icon = 8, count = 1, spells = B.MobSpells(shaman) },
-        { name = "Ragefire Shaman", count = 2, spells = B.MobSpells(shaman) },
-        { name = "Searing Blade Warlock", count = 1, spells = B.MobSpells(MK.MobAbilities[RFC]["Searing Blade Warlock"]) },
-        { name = "Ragefire Trogg", count = 3, spells = B.MobSpells(MK.MobAbilities[RFC]["Ragefire Trogg"]) },
-    })
-    t.eq(lines[1], "[Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave; 2x Ragefire Shaman: Healing Wave",
-        "interrupt line")
+    -- 4. Who brings an interrupt (step 2).
+    sim.spells[8042], sim.spells[1766], sim.spells[72] = "Earth Shock", "Kick", "Shield Bash"
+    sim.spells[6552], sim.spells[2139] = "Pummel", "Counterspell"
+    local function kitName(k) return k and sim.spells[k.id] or k and k.id or "none" end
+    t.eq(kitName(B.KitFor("SHAMAN", 3)), "none", "Shaman below 4: nothing")
+    t.eq(kitName(B.KitFor("SHAMAN", 4)), "Earth Shock", "Shaman 4: Earth Shock")
+    t.eq(kitName(B.KitFor("ROGUE", 12)), "Kick", "Rogue 12: Kick")
+    t.eq(kitName(B.KitFor("MAGE", 23)), "none", "Mage 23: no Counterspell yet")
+    t.eq(kitName(B.KitFor("MAGE", 24)), "Counterspell", "Mage 24: Counterspell")
+    t.eq(kitName(B.KitFor("WARRIOR", 30)), "none", "another warrior below 38: no shield assumed")
+    t.eq(kitName(B.KitFor("WARRIOR", 38)), "Pummel", "another warrior 38: Pummel")
+    t.eq(B.KitFor("PALADIN", 8).kind, "stun", "Paladin: Hammer of Justice as a stun")
+    t.eq(kitName(B.KitFor("PRIEST", 60)), "none", "Priest: nothing")
+    local function knows(set) return function(ids) for _, id in ipairs(ids) do if set[id] then return true end end end end
+    t.eq(kitName(B.KitFor("WARRIOR", 20, { known = knows({ [1671] = true }), shield = true })), "Shield Bash",
+        "you, shield worn, rank 2 known: Shield Bash")
+    t.eq(kitName(B.KitFor("WARRIOR", 20, { known = knows({ [72] = true }), shield = false })), "none",
+        "you without a shield: no Shield Bash")
+    t.eq(kitName(B.KitFor("WARRIOR", 40, { known = knows({ [72] = true, [6552] = true }), shield = true })), "Pummel",
+        "you with both: Pummel (shorter cooldown)")
+
+    -- 5. Assignment + message lines.
+    local function packMobs()
+        return {
+            { name = "Ragefire Shaman", icon = 8, count = 1, spells = B.MobSpells(shaman) },
+            { name = "Ragefire Shaman", count = 2, spells = B.MobSpells(shaman) },
+            { name = "Searing Blade Warlock", count = 1, spells = B.MobSpells(MK.MobAbilities[RFC]["Searing Blade Warlock"]) },
+            { name = "Ragefire Trogg", count = 3, spells = B.MobSpells(MK.MobAbilities[RFC]["Ragefire Trogg"]) },
+        }
+    end
+    local tank = { short = "Tankard", tank = true, kit = B.KitFor("WARRIOR", 20, { known = knows({ [72] = true }), shield = true }) }
+    local mage = { short = "Lumen", kit = B.KitFor("MAGE", 30) }
+    local shammy = { short = "Kira", kit = B.KitFor("SHAMAN", 30) }
+    local rogue = { short = "Vex", kit = B.KitFor("ROGUE", 30) }
+    local pally = { short = "Aldric", kit = B.KitFor("PALADIN", 30) }
+    local priest = { short = "Healy" }
+    local mobs = packMobs()
+    local left = B.Assign(mobs, { priest, mage, pally, rogue, shammy, tank })
+    local lines = B.BuildLines(mobs)
+    t.eq(lines[1], "[Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); "
+        .. "2x Ragefire Shaman: Healing Wave -> Kira (Earth Shock), Vex (Kick)",
+        "tank takes the skull's heal; the pair gets the two shortest kicks")
     t.eq(lines[2], "[Bulwark] Best effort: Lightning Bolt, Shadow Bolt", "best-effort line, each spell once")
     t.eq(#lines, 2, "no note line without notes; the Trogg adds nothing")
+    t.ok(#left == 2 and left[1] == mage and left[2] == pally, "Counterspell (30 s) and the stun stay free")
+
+    mobs = packMobs()
+    B.Assign(mobs, { tank, priest })
+    lines = B.BuildLines(mobs)
+    t.eq(lines[1], "[Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash)", "only the tank")
+    t.eq(lines[2], "[Bulwark] Best effort: Healing Wave, Lightning Bolt, Shadow Bolt",
+        "nobody for the pair: their heal leads the best-effort list")
+
+    mobs = packMobs()
+    B.Assign(mobs, { tank, pally })
+    lines = B.BuildLines(mobs)
+    t.eq(lines[1], "[Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); "
+        .. "2x Ragefire Shaman: Healing Wave -> Aldric (Hammer of Justice)", "no kicker left: the stun is used")
+    t.eq(lines[2], "[Bulwark] Best effort: Healing Wave, Lightning Bolt, Shadow Bolt", "one of the pair still uncovered")
+
+    -- The tank takes the heal even when a crowd-control caster dies first.
+    sim.spells[113] = "Chains of Ice"
+    mobs = {
+        { name = "Frost Caller", icon = 8, count = 1, spells = B.MobSpells({ "113;cc;1500;combat;5;9;" }) },
+        { name = "Ragefire Shaman", icon = 7, count = 1, spells = B.MobSpells(shaman) },
+    }
+    B.Assign(mobs, { tank, mage })
+    t.ok(mobs[2].assigned[1] == tank and mobs[1].assigned[1] == mage, "heal before crowd control for the tank")
+
+    -- No must in view: the tank watches the boss's worst cast.
+    mobs = { { name = "Jergosh the Invoker", count = 1, boss = true,
+               spells = B.MobSpells(MK.MobAbilities[RFC]["Jergosh the Invoker"]) } }
+    B.Assign(mobs, { tank, mage })
+    lines = B.BuildLines(mobs)
+    t.eq(lines[1], "[Bulwark] Interrupt: Jergosh the Invoker: Immolate -> Tankard (Shield Bash)", "boss: tank on Immolate")
+    t.eq(#lines, 1, "Immolate not repeated under best effort")
+    mobs = { { name = "Searing Blade Warlock", count = 1, spells = B.MobSpells(MK.MobAbilities[RFC]["Searing Blade Warlock"]) } }
+    B.Assign(mobs, { tank })
+    t.eq(B.BuildLines(mobs)[1], "[Bulwark] Best effort: Shadow Bolt", "trash should casts are not assigned")
+    mobs = packMobs()
+    B.Assign(mobs, { { short = "Tankard", tank = true } })
+    t.eq(B.BuildLines(mobs)[1], "[Bulwark] Best effort: Healing Wave, Lightning Bolt, Shadow Bolt",
+        "a tank without an interrupt: everything best effort")
     lines = B.BuildLines({ { name = "Witherfang", count = 1, spells = B.MobSpells({ "3358;dot;0;wiki;0;0;" },
         function() return { flags = { "dispel-poison" }, note = "Poisons the tank|healer." } end) } })
     t.eq(lines[1], "[Bulwark] Note: Leech Poison (Witherfang): Poisons the tank/healer.", "note line, no bare pipe")
@@ -102,7 +174,13 @@ return function(_, t)
     for i = 1, 12 do many[i] = { name = "Ragefire Shaman", icon = (i % 8) + 1, count = 1, spells = B.MobSpells(shaman) } end
     for _, l in ipairs(B.BuildLines(many)) do t.ok(#l <= 250, "wrapped line fits a chat message (" .. #l .. ")") end
 
-    -- 5. In the dungeon with readable names: the pack in view + a far target; marks from Marking.
+    -- 6. In the dungeon with readable names: the pack in view + a far target; marks from Marking. Group: you (warrior,
+    -- Shield Bash known, shield worn), Lumen (priest), Kira (shaman 20).
+    sim.known[72] = true
+    sim.equipped[17] = "|cffffffff|Hitem:4975::::::::|h[Vigilant Buckler]|h|r"
+    sim.itemInfo[4975] = { classID = 4, subClassID = 6, equipLoc = "INVTYPE_SHIELD" }
+    sim.units.party2 = { name = "Kira", surname = "Stormcall", class = "SHAMAN", guid = "Player-1-00000003",
+                         friendly = true, level = 20 }
     H.pack(sim)   -- nameplate1 Trogg, nameplate2 Shaman, nameplate3 Trogg
     sim.units.nameplate4 = { name = "Searing Blade Warlock", friendly = false, level = 14, tier = "elite", power = "MANA" }
     sim.units.nameplate5 = { name = "Ragefire Shaman", friendly = false, level = 13, tier = "elite", power = "MANA" }
@@ -115,7 +193,8 @@ return function(_, t)
     env.SetRaidTarget("nameplate2", 8)
     sim:Fire("RAID_TARGET_UPDATE")
     sim:Advance(1)
-    local mobs, summary = B.Collect()
+    local summary
+    mobs, summary = B.Collect()
     t.eq(summary.total, 6, "six near plates (Jergosh is far and not targeted)")
     t.eq(summary.noData["Some Forever Mob"], 1, "mob without data counted")
     t.ok(mobs[1].name == "Ragefire Shaman" and mobs[1].icon == 8, "skull first")
@@ -126,6 +205,8 @@ return function(_, t)
     t.contains(sim.output, "No ability data: Some Forever Mob", "no-data mob listed")
     t.contains(sim.output, "Would post:", "would-post section")
     t.contains(sim.output, "Best effort: Lightning Bolt, Shadow Bolt", "best effort in the preview")
+    t.contains(sim.output, "Interrupters: Tankard %(Shield Bash, 12 s%), Kira %(Earth Shock, 6 s%)", "interrupters listed")
+    t.contains(sim.output, "No interrupt %(class/level%): Lumen", "the priest listed as without one")
     t.eq(#sent(sim, "PARTY"), 0, "preview sends nothing")
 
     sim.units.target = sim.units.nameplate6
@@ -133,8 +214,8 @@ return function(_, t)
     sim:Advance(1)
     sim:Slash("/bwk mark brief")
     local party = sent(sim, "PARTY")
-    t.eq(party[1], "[Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave; Ragefire Shaman: Healing Wave",
-        "posted interrupt line")
+    t.eq(party[1], "[Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); "
+        .. "Ragefire Shaman: Healing Wave -> Kira (Earth Shock)", "posted interrupt line with assignments")
     t.eq(party[2], "[Bulwark] Best effort: Lightning Bolt, Shadow Bolt, Immolate", "the far boss target is included")
     t.eq(#party, 2, "two lines posted")
 
@@ -164,7 +245,7 @@ return function(_, t)
     t.contains(sim.output, "Nothing to brief", "only a Trogg left: nothing posted")
     t.eq(#sent(sim, "PARTY"), 2, "still two lines")
 
-    -- 6. Names secret (dungeon): nameless plates are counted, never guessed; a learned name (%t echo) is used.
+    -- 7. Names secret (dungeon): nameless plates are counted, never guessed; a learned name (%t echo) is used.
     local sim2 = t.fresh(rfc)
     names(sim2)
     local MK2 = sim2.env.Bulwark.Marking
