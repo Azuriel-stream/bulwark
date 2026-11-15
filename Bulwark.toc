@@ -3,6 +3,7 @@
 ## Notes: Tanking suite: combat alerts, pre-pull audit, one-key raid marking and tank utilities in one window.
 ## Author: Azuriel
 ## Version: 0.10.0
+## X-License: GPL-3.0-or-later
 ## IconTexture: Interface\AddOns\Bulwark\Media\icon.tga
 ## Category: Tanking
 ## AddonCompartmentFunc: Bulwark_OnCompartmentClick

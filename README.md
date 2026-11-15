@@ -159,9 +159,18 @@ purposes, enchant list and tracker position are saved per character (`BulwarkCha
 
 Mob ability data (`Areas/Marking/Data/MobAbilities.lua`):
 
-- Classic dungeons and raids: the [cMaNGOS classic-db](https://github.com/cmangos/classic-db) world database, checked
+- Classic dungeons and raids: the [cMaNGOS classic-db](https://github.com/cmangos/classic-db) world database (GPL-3.0), checked
   against the game's own spell data; for bosses scripted in code, the spells their
   [cMaNGOS mangos-classic](https://github.com/cmangos/mangos-classic) boss scripts use (GPL-2).
 - Forever-only dungeons: [warcraft.wiki.gg](https://warcraft.wiki.gg) mob pages (category "Forever mobs"), by the wiki's
   contributors, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Reduced to spell IDs, with spell
   type and cast time added from the game's data. Entries from the wiki are marked `wiki = true` in the data file.
+
+## License
+
+Copyright (C) 2026 Azuriel-stream
+
+Bulwark is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full text.
