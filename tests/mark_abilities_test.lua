@@ -71,6 +71,9 @@ return function(sim, t)
     t.ok(A.Interruptible(p), "channelled = interruptible")
     t.ok(not A.Interruptible(A.ParseSpell("1;dmg;0;combat;1;2;")), "instant = not interruptible")
     t.eq(A.ParseSpell("x;dmg"), nil, "garbage refused")
+    local k = A.ParseSpell("20787;dmg;0;wcl;0;0;K")
+    t.ok(k.kicked and not k.channel and A.Interruptible(k), "flag K: interrupted in Warcraft Logs runs = interruptible")
+    t.ok(A.Describe(k):find("Warcraft Logs", 1, true) ~= nil, "K shown in the description")
 
     -- Lookup: case-insensitive; current instance first.
     local entry, real, where = A.Find("ragefire shaman", RFC)
@@ -94,6 +97,15 @@ return function(sim, t)
     sim.units.target = nil
     sim:Slash("/bwk mark abilities")
     t.contains(sim.output, "Target a mob or give its name", "usage without target or name")
+    sim:Slash("/bwk mark abilities Nobody Special")
+    t.contains(sim.output, "No ability data for Nobody Special", "unknown mob: no data")
+
+    -- Forever-only dungeons from Warcraft Logs runs (tools/export-wcl-abilities.ps1): Krol'dok Stronghold (3039).
+    t.eq(MK.MobAbilityInstances[3039], "Krol'dok Stronghold", "Krol'dok has data")
+    local ks = MK.MobAbilities[3039]["Krol'dok Shaman"]
+    local bolt = ks and has(ks, 12167)
+    t.ok(ks and ks.wcl and bolt and bolt.trigger == "wcl" and bolt.kicked, "Krol'dok Shaman: Lightning Bolt, interrupted in logs")
+    t.ok(MK.MobAbilities[3039]["Overlord Mugg"].boss, "boss flag from the logs")
     sim:Slash("/bwk mark abilities Twilight Grunt")
-    t.contains(sim.output, "No ability data for Twilight Grunt", "Forever-only mob: no data")
+    t.contains(sim.output, "Twilight Grunt %(Krol'dok Stronghold%)", "a Forever-only mob found")
 end

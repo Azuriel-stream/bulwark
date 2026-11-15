@@ -10,7 +10,8 @@ local Abilities = {}
 MK.Abilities = Abilities
 local L, Utils = MK.L, MK.Utils
 
--- "11986;heal;3000;allyhp;24;24;" -> { id, kind, cast (ms), trigger, rmin, rmax (s), channel, area, arg }
+-- "11986;heal;3000;allyhp;24;24;" -> { id, kind, cast (ms), trigger, rmin, rmax (s), channel, area, kicked, arg }
+-- Flags: C channelled, A area, K players interrupted it in Warcraft Logs runs (Forever dungeons).
 function Abilities.ParseSpell(s)
     if type(s) ~= "string" then return nil end
     local id, kind, cast, trigger, rmin, rmax, flags, arg = strsplit(";", s)
@@ -20,13 +21,14 @@ function Abilities.ParseSpell(s)
     return {
         id = id, kind = kind or "other", cast = tonumber(cast) or 0, trigger = trigger or "",
         rmin = tonumber(rmin) or 0, rmax = tonumber(rmax) or 0,
-        channel = flags:find("C", 1, true) ~= nil, area = flags:find("A", 1, true) ~= nil, arg = tonumber(arg),
+        channel = flags:find("C", 1, true) ~= nil, area = flags:find("A", 1, true) ~= nil,
+        kicked = flags:find("K", 1, true) ~= nil, arg = tonumber(arg),
     }
 end
 
--- A cast that a kick can stop: it has a cast time or is channelled.
+-- A cast that a kick can stop: it has a cast time, is channelled, or players were seen interrupting it.
 function Abilities.Interruptible(spell)
-    return spell.cast > 0 or spell.channel
+    return spell.cast > 0 or spell.channel or spell.kicked == true
 end
 
 -- Lowercase name -> { [instanceID] = realName }, built on first use.
@@ -95,7 +97,8 @@ function Abilities.Describe(spell)
         parts[#parts + 1] = spell.rmin == spell.rmax and string.format(L["ABIL_EVERY"], spell.rmax)
             or string.format(L["ABIL_EVERY_RANGE"], spell.rmin, spell.rmax)
     end
-    if Abilities.Interruptible(spell) then parts[#parts + 1] = L["ABIL_INTERRUPTIBLE"] end
+    if spell.kicked then parts[#parts + 1] = L["ABIL_KICKED"]
+    elseif Abilities.Interruptible(spell) then parts[#parts + 1] = L["ABIL_INTERRUPTIBLE"] end
     return SpellName(spell.id) .. ": " .. table.concat(parts, ", ")
 end
 

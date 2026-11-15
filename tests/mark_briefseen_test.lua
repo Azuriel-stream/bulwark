@@ -81,25 +81,25 @@ return function(_, t)
     t.eq(rec(RFC, "Searing Blade Warlock", 99002), nil, "nor to the Warlock")
     t.ok(rec(RFC, "Searing Blade Warlock", 20791), "Shadow Bolt: only the Warlock casts it")
 
-    -- 3. A Forever-only dungeon without data fills from play.
-    local KROLDOK = 3002
-    MK.Plates.instanceID = KROLDOK
-    env.GetInstanceInfo = function() return "Krol'dok Stronghold", "party", 1, "Normal", 5, 0, false, KROLDOK, 5, nil, false end
-    enemies = { { name = "Twilight Grunt", classFilename = "WARRIOR" }, { name = "Twilight Shaman", classFilename = "MAGE" } }
-    spells = { [7] = { [GUID_ME] = { hit(99003, "Twilight Grunt") } }, [5] = { [GUID_LUMEN] = { kick(99004) } } }
+    -- 3. A dungeon without data (fictional: every Forever dungeon has data since the Warcraft Logs merge) fills from play.
+    local NODATA = 9999
+    MK.Plates.instanceID = NODATA
+    env.GetInstanceInfo = function() return "Test Dungeon", "party", 1, "Normal", 5, 0, false, NODATA, 5, nil, false end
+    enemies = { { name = "Test Grunt", classFilename = "WARRIOR" }, { name = "Test Shaman", classFilename = "MAGE" } }
+    spells = { [7] = { [GUID_ME] = { hit(99003, "Test Grunt") } }, [5] = { [GUID_LUMEN] = { kick(99004) } } }
     fight()
-    t.ok(rec(KROLDOK, "Twilight Grunt", 99003), "no data: hit recorded")
-    t.ok(rec(KROLDOK, "Twilight Shaman", 99004), "no data: kick pinned to the only caster")
-    t.eq(B.LearnedInstances()[KROLDOK], "Krol'dok Stronghold", "instance name kept")
-    local rows = B.AbilityRows(KROLDOK)
-    t.ok(#rows == 4 and rows[1].mob == "Twilight Grunt" and rows[3].mob == "Twilight Shaman", "page rows for learned mobs")
+    t.ok(rec(NODATA, "Test Grunt", 99003), "no data: hit recorded")
+    t.ok(rec(NODATA, "Test Shaman", 99004), "no data: kick pinned to the only caster")
+    t.eq(B.LearnedInstances()[NODATA], "Test Dungeon", "instance name kept")
+    local rows = B.AbilityRows(NODATA)
+    t.ok(#rows == 4 and rows[1].mob == "Test Grunt" and rows[3].mob == "Test Shaman", "page rows for learned mobs")
     t.ok(rows[4].seen and rows[4].auto == "should", "Shadow Hex: seen, should")
     t.eq(rows[2].auto, "ignore", "Grunt Smash (instant hit): ignore")
-    -- In the briefing: a Twilight Shaman in view brings Shadow Hex under best effort.
-    sim.units.nameplate1 = { name = "Twilight Shaman", friendly = false, level = 30, tier = "elite", power = "MANA" }
+    -- In the briefing: a Test Shaman in view brings Shadow Hex under best effort.
+    sim.units.nameplate1 = { name = "Test Shaman", friendly = false, level = 30, tier = "elite", power = "MANA" }
     sim:Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
     sim:Advance(1)
-    MK.Plates.instanceID = KROLDOK
+    MK.Plates.instanceID = NODATA
     local lines = B.BuildLines((B.Plan()))
     t.eq(lines[1], "[Bulwark] Best effort: Shadow Hex", "learned cast briefed")
 
@@ -113,9 +113,9 @@ return function(_, t)
 
     -- 5. Page: the learned dungeon is offered; seen spells carry the mark.
     local page = H.page(sim, "briefing")
-    page.instance = KROLDOK
+    page.instance = NODATA
     page:refresh()
-    t.contains({ page.zoneDrop.label:GetText() }, "Krol'dok Stronghold", "learned dungeon in the picker")
+    t.contains({ page.zoneDrop.label:GetText() }, "Test Dungeon", "learned dungeon in the picker")
     t.contains({ page.rows[4].spell:GetText() }, "ReadyCheck%-Ready", "seen mark on Shadow Hex")
     t.eq(#sim.errors, 0, "no Lua errors")
 end

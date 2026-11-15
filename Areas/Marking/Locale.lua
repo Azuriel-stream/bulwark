@@ -214,6 +214,8 @@ L["ABIL_TRIG_hit"] = "when hit by a spell"
 L["ABIL_KIND_cast"] = "interrupted in play"
 L["ABIL_KIND_note"] = "a mechanic to know (curated hint)"
 L["ABIL_TRIG_hint"] = ""
+L["ABIL_TRIG_wcl"] = ""
+L["ABIL_KICKED"] = "|cff66ff66interruptible|r (players interrupt it in Warcraft Logs runs)"
 L["ABIL_TRIG_seen"] = "seen in play"
 
 -- Briefing (Briefing.lua)

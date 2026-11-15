@@ -51,6 +51,8 @@ return function(_, t)
     t.eq(B.DefaultPriority(P("4;passive;0;spawn;0;0;")), "ignore", "passive = ignore")
     t.eq(B.DefaultPriority(P("7121;buff;2000;combat;17;26;")), "should", "2 s buff cast (Anti-Magic Shield) = should")
     t.eq(B.DefaultPriority(P("18399;dmg;3000;wiki;0;0;A")), "should", "wiki spell with a cast = should")
+    t.eq(B.DefaultPriority(P("20787;dmg;1500;wcl;0;0;K")), "should", "short cast players interrupt in logs = should")
+    t.eq(B.DefaultPriority(P("5;heal;0;wcl;0;0;K")), "must", "a heal players interrupt in logs = must")
 
     -- 2. Hints and the user's override.
     local strike = P("11976;dmg;0;combat;6;12;")

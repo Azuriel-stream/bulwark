@@ -34,7 +34,7 @@ function Briefing.DefaultPriority(spell)
     if spell.kind == "cast" then return "should" end   -- seen interrupted in play, kind unknown: worth a kick
     if not Abilities.Interruptible(spell) then return "ignore" end
     if spell.kind == "heal" or spell.kind == "cc" then return "must" end
-    if spell.channel or spell.cast >= SHOULD_CAST then return "should" end
+    if spell.channel or spell.cast >= SHOULD_CAST or spell.kicked then return "should" end   -- kicked: groups stop it in logs
     return "ignore"
 end
 
