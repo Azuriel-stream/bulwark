@@ -29,18 +29,20 @@ return function(sim, t)
     t.ok(MK.MobAbilities[RFC]["Jergosh the Invoker"].boss, "Jergosh flagged as encounter boss")
     t.ok(has(MK.MobAbilities[RFC]["Jergosh the Invoker"], 20800), "Jergosh: Immolate")
 
-    -- Forever-only dungeons from the user's warcraft.wiki.gg export: Ruins of Lordaeron (2999).
+    -- Forever-only dungeons from Warcraft Logs runs: Ruins of Lordaeron (2999). No wiki data ships (dropped 2026-11-15).
     local ROL = 2999
     t.eq(MK.MobAbilityInstances[ROL], "Ruins of Lordaeron", "Forever-only instance named")
     local rath = MK.MobAbilities[ROL] and MK.MobAbilities[ROL]["Rath'mael"]
-    t.ok(rath and rath.wiki and rath.boss, "Rath'mael: wiki entry, flagged boss from Forever's encounter list")
+    t.ok(rath and rath.wcl and rath.boss and not rath.wiki, "Rath'mael: from the logs, boss")
     local fs = has(rath, 18399)
-    t.ok(fs and fs.trigger == "wiki" and fs.cast > 0, "Flamestrike: wiki trigger, cast time from the game's data")
-    t.eq(A.Describe(fs):find("wiki", 1, true), nil, "no trigger text for wiki spells")
+    t.ok(fs and fs.trigger == "wcl" and fs.cast > 0 and fs.kicked, "Flamestrike: from the logs, cast time from the game's data, interrupted")
+    t.eq(A.Describe(fs):find("wcl", 1, true), nil, "no trigger text for wcl spells")
     sim.spells[18399] = "Flamestrike"
     sim:Slash("/bwk mark abilities Rath'mael")
-    t.contains(sim.output, "Rath'mael %(Ruins of Lordaeron%)", "wiki mob found by name")
-    t.contains(sim.output, "abilities from warcraft%.wiki%.gg", "wiki source credited in the output")
+    t.contains(sim.output, "Rath'mael %(Ruins of Lordaeron%)", "Forever mob found by name")
+    for _, mobs in pairs(MK.MobAbilities) do
+        for name, entry in pairs(mobs) do t.ok(not entry.wiki, "no wiki entries left: " .. name) end
+    end
 
     -- Bosses scripted in the server's C++ code: spells their AI class uses (cmangos/mangos-classic).
     local doan = MK.MobAbilities[189] and MK.MobAbilities[189]["Arcanist Doan"]
@@ -54,8 +56,7 @@ return function(sim, t)
     local n = 0
     for _, mobs in pairs(MK.MobAbilities) do
         for name, entry in pairs(mobs) do
-            -- Wiki pages can lack the NPC ID (Bloodhound Runt): lookups go by name, ids are extra information.
-            t.ok(type(entry.ids) == "table" and (#entry.ids > 0 or entry.wiki), "ids for " .. name)
+            t.ok(type(entry.ids) == "table" and #entry.ids > 0, "ids for " .. name)
             for _, s in ipairs(entry) do
                 local p = A.ParseSpell(s)
                 t.ok(p and p.id > 0 and p.kind ~= "" and p.trigger ~= "", "parses: " .. s)

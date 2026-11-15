@@ -50,7 +50,10 @@ return function(_, t)
     t.eq(B.DefaultPriority(P("3;heal;2000;spawn;0;0;")), "ignore", "spawn trigger = ignore")
     t.eq(B.DefaultPriority(P("4;passive;0;spawn;0;0;")), "ignore", "passive = ignore")
     t.eq(B.DefaultPriority(P("7121;buff;2000;combat;17;26;")), "should", "2 s buff cast (Anti-Magic Shield) = should")
-    t.eq(B.DefaultPriority(P("18399;dmg;3000;wiki;0;0;A")), "should", "wiki spell with a cast = should")
+    t.eq(B.DefaultPriority(P("18399;dmg;3000;wcl;0;0;A")), "should", "logged spell with a cast = should")
+    t.eq(B.DefaultPriority(P("11981;other;3000;wcl;0;0;K")), "should", "unclassified cast players interrupt (Mana Burn) = should")
+    t.eq(B.DefaultPriority(P("1303459;other;1500;wcl;0;0;")), "ignore", "unclassified short cast, never kicked = ignore")
+    t.eq(B.DefaultPriority(P("7485;other;0;combat;3;10;")), "ignore", "unclassified instant = ignore")
     t.eq(B.DefaultPriority(P("20787;dmg;1500;wcl;0;0;K")), "should", "short cast players interrupt in logs = should")
     t.eq(B.DefaultPriority(P("5;heal;0;wcl;0;0;K")), "must", "a heal players interrupt in logs = must")
 
@@ -169,7 +172,7 @@ return function(_, t)
     B.Assign(mobs, { { short = "Tankard", tank = true } })
     t.eq(B.BuildLines(mobs)[1], "[Bulwark] Best effort: Healing Wave, Lightning Bolt, Shadow Bolt",
         "a tank without an interrupt: everything best effort")
-    lines = B.BuildLines({ { name = "Witherfang", count = 1, spells = B.MobSpells({ "3358;dot;0;wiki;0;0;" },
+    lines = B.BuildLines({ { name = "Witherfang", count = 1, spells = B.MobSpells({ "3358;dot;0;wcl;0;0;" },
         function() return { flags = { "dispel-poison" }, note = "Poisons the tank|healer." } end) } })
     t.eq(lines[1], "[Bulwark] Note: Leech Poison (Witherfang): Poisons the tank/healer.", "note line, no bare pipe")
     t.eq(#B.BuildLines({ { name = "Ragefire Trogg", count = 1, spells = {} } }), 0, "nothing to say: no lines")

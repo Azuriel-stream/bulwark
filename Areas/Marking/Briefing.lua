@@ -30,7 +30,10 @@ local SHOULD_CAST = 2000   -- ms: a damage/debuff cast this long is worth a kick
 -- Default priority from the data alone. must: interruptible heal or crowd control. should: any other interruptible
 -- cast of 2 s or more, or channelled. ignore: instant, passive, or only outside the fight.
 function Briefing.DefaultPriority(spell)
-    if spell.kind == "passive" or spell.kind == "other" or OUT_OF_FIGHT[spell.trigger] then return "ignore" end
+    if spell.kind == "passive" or OUT_OF_FIGHT[spell.trigger] then return "ignore" end
+    -- "other": the game's data gives no clear effect (e.g. Mana Burn). Instant: noise. With a cast, channelled or
+    -- interrupted in logs: a cast like any other (falls through to the should rule below).
+    if spell.kind == "other" and not Abilities.Interruptible(spell) then return "ignore" end
     if spell.kind == "cast" then return "should" end   -- seen interrupted in play, kind unknown: worth a kick
     if not Abilities.Interruptible(spell) then return "ignore" end
     if spell.kind == "heal" or spell.kind == "cc" then return "must" end

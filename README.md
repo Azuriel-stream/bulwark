@@ -189,9 +189,6 @@ Mob ability data (`Areas/Marking/Data/MobAbilities.lua`):
 - Classic dungeons and raids: the [cMaNGOS classic-db](https://github.com/cmangos/classic-db) world database (GPL-3.0), checked
   against the game's own spell data; for bosses scripted in code, the spells their
   [cMaNGOS mangos-classic](https://github.com/cmangos/mangos-classic) boss scripts use (GPL-2).
-- Forever-only dungeons: [warcraft.wiki.gg](https://warcraft.wiki.gg) mob pages (category "Forever mobs"), by the wiki's
-  contributors, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Reduced to spell IDs, with spell
-  type and cast time added from the game's data. Entries from the wiki are marked `wiki = true` in the data file.
 - Forever-only dungeons: what each mob cast, and which casts players interrupted, in public
   [Warcraft Logs](https://www.warcraftlogs.com) reports of completed runs (a few per dungeon), read through the Warcraft
   Logs API. Only mob and spell data is kept. Entries are marked `wcl = true`, spells from it trigger `wcl`.
