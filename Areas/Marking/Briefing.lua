@@ -6,6 +6,7 @@ local MK = NS.Marking
 -- Build step 1: the priority engine and /bwk mark brief [preview] for the planned pack + the target.
 -- Build step 2: who interrupts which mob (KIT, KitFor, Assign, Roster).
 -- Build step 3: the tile and the "Post briefing" key (BriefingTile.lua).
+-- Build step 5: casts seen in play, learned from the damage meter after each fight (ReadMeter, FindEntry).
 -- Later steps: interrupter assignment (2), tile + keybind (3), per-ability edits on the Mobs page (4), learning
 -- from the damage meter (5), curated hints in the generated data (6).
 local Briefing = {}
@@ -28,6 +29,7 @@ local SHOULD_CAST = 2000   -- ms: a damage/debuff cast this long is worth a kick
 -- cast of 2 s or more, or channelled. ignore: instant, passive, or only outside the fight.
 function Briefing.DefaultPriority(spell)
     if spell.kind == "passive" or spell.kind == "other" or OUT_OF_FIGHT[spell.trigger] then return "ignore" end
+    if spell.kind == "cast" then return "should" end   -- seen interrupted in play, kind unknown: worth a kick
     if not Abilities.Interruptible(spell) then return "ignore" end
     if spell.kind == "heal" or spell.kind == "cc" then return "must" end
     if spell.channel or spell.cast >= SHOULD_CAST then return "should" end
@@ -281,6 +283,185 @@ end
 -- =========================================================================
 
 -- =========================================================================
+-- Seen in play (build step 5). After every fight in an instance (2 s after combat ends: the meter is secret in
+-- combat [in-game probe]) the damage meter tells, for each group member:
+--   DamageTaken: which enemy (by name) hit them with which spell          -> learned, attributed exactly
+--   Interrupts:  which enemy spell they stopped, but not whose (probe)     -> learned when the pull pins it to one mob
+-- Saved per instance: BulwarkDB.marking.learnedSpells[instanceID] = { name = instance name,
+--   mobs = { [mobName] = { [spellID] = { n = times, how = "hit"|"kick", at = time() } } } }
+-- Known spells only get "seen"; new ones join the mob's casts (this is how Forever-only dungeons without data fill).
+-- =========================================================================
+
+local MELEE = { [6603] = true }   -- Attack (auto attack)
+
+local function Store()
+    local db = MK.db
+    if not db then return {} end
+    db.learnedSpells = db.learnedSpells or {}
+    return db.learnedSpells
+end
+
+-- { [mobName] = { [spellID] = rec } } learned in an instance (empty table if none).
+function Briefing.LearnedMobs(instanceID)
+    local inst = instanceID and Store()[instanceID]
+    return inst and inst.mobs or {}
+end
+
+-- Instances with learned casts: { [instanceID] = name }.
+function Briefing.LearnedInstances()
+    local list = {}
+    for id, inst in pairs(Store()) do list[id] = inst.name or tostring(id) end
+    return list
+end
+
+-- A learned spell as a data string: kind "cast" (interrupted: it has a cast) or "dmg" (it hit us), cast time from
+-- the game, trigger "seen".
+local function SeenSpell(id, rec)
+    local cast = 0
+    local ok, info = pcall(C_Spell.GetSpellInfo, id)
+    if ok and type(info) == "table" and not Utils.IsSecret(info) then
+        local c = info.castTime
+        if type(c) == "number" and not Utils.IsSecret(c) then cast = c end
+    end
+    return string.format("%d;%s;%d;seen;0;0;", id, rec.how == "kick" and "cast" or "dmg", cast)
+end
+
+-- The mob's casts: the offline data merged with what was seen in play here. Returns entry, realName (nil if
+-- neither knows the mob). entry.seen = { [spellID] = rec } for spells seen in play.
+function Briefing.FindEntry(name, instanceID)
+    local entry, realName = Abilities.Find(name, instanceID)
+    local learned = Briefing.LearnedMobs(instanceID)[realName or name]
+    if not learned then return entry, realName end
+    local merged, have, ids = { boss = entry and entry.boss, seen = learned }, {}, {}
+    for _, s in ipairs(entry or {}) do
+        merged[#merged + 1] = s
+        have[tonumber(s:match("^(%d+)"))] = true
+    end
+    for id in pairs(learned) do if not have[id] then ids[#ids + 1] = id end end
+    table.sort(ids)
+    for _, id in ipairs(ids) do merged[#merged + 1] = SeenSpell(id, learned[id]) end
+    return merged, realName or name
+end
+
+-- Records one sighting. A kick upgrades a hit (it proves the spell can be interrupted). Returns true if new.
+function Briefing.RecordSeen(instanceID, instanceName, mob, spellID, how)
+    local store = Store()
+    local inst = store[instanceID] or { mobs = {} }
+    store[instanceID] = inst
+    inst.name = inst.name or instanceName
+    inst.mobs[mob] = inst.mobs[mob] or {}
+    local rec = inst.mobs[mob][spellID]
+    if rec then
+        rec.n = (rec.n or 0) + 1
+        if how == "kick" then rec.how = "kick" end
+        rec.at = time()
+        return false
+    end
+    inst.mobs[mob][spellID] = { n = 1, how = how, at = time() }
+    return true
+end
+
+-- Which mob of the pull cast an interrupted spell: the only one known to cast it (data or seen), else the only caster
+-- type in the pull (creature unit class other than warrior/rogue, or the data's class). nil when it can't be pinned.
+-- pull = { [name] = { caster = bool } }
+function Briefing.Attribute(spellID, pull, instanceID)
+    local knows, casters = {}, {}
+    for name, info in pairs(pull) do
+        local entry = Briefing.FindEntry(name, instanceID)
+        for _, spell in ipairs(Abilities.Spells(entry)) do
+            if spell.id == spellID then knows[#knows + 1] = name break end
+        end
+        if info.caster then casters[#casters + 1] = name end
+    end
+    if #knows == 1 then return knows[1] end
+    if #knows == 0 and #casters == 1 then return casters[1] end
+    return nil
+end
+
+local NON_CASTER_CLASS = { WARRIOR = true, ROGUE = true }
+local DATA_NON_CASTER = { [1] = true, [4] = true }   -- creature unit class 1 = warrior, 4 = rogue
+
+local function Plain(v, kind)
+    return v ~= nil and not Utils.IsSecret(v) and type(v) == kind
+end
+
+-- Reads the meter's current session (the fight that just ended). Returns how many new mob casts were learned.
+function Briefing.ReadMeter()
+    if not MK.isEnabled or not MK.Plates.inInstance or InCombatLockdown() then return 0 end
+    local meter, E = C_DamageMeter, Enum
+    if not (meter and meter.GetCombatSessionFromType and meter.GetCombatSessionSourceFromType and E
+        and E.DamageMeterSessionType and E.DamageMeterType) then return 0 end
+    local CURRENT, T = E.DamageMeterSessionType.Current, E.DamageMeterType
+    local instanceID = MK.Plates.instanceID
+    if not instanceID then return 0 end
+    local okI, instanceName = pcall(GetInstanceInfo)
+    instanceName = okI and Plain(instanceName, "string") and instanceName or nil
+
+    -- Who was in the pull (enemy rows), and which of them cast spells.
+    local pull = {}
+    local ok, session = pcall(meter.GetCombatSessionFromType, CURRENT, T.EnemyDamageTaken)
+    local sources = ok and Plain(session, "table") and session.combatSources
+    for _, src in ipairs(Plain(sources, "table") and sources or {}) do
+        local name = Plain(src, "table") and src.name
+        if Plain(name, "string") and name ~= "" and src.isLocalPlayer ~= true then
+            local entry = Abilities.Find(name, instanceID)
+            local cls = src.classFilename
+            local caster
+            if entry and entry.cls and entry.cls > 0 then
+                caster = not DATA_NON_CASTER[entry.cls]
+            else
+                caster = Plain(cls, "string") and cls ~= "" and not NON_CASTER_CLASS[cls] or false
+            end
+            pull[name] = { caster = caster }
+        end
+    end
+
+    local members = {}
+    for _, m in ipairs(MK.Team:Members()) do members[m.short or m.name] = true end
+    local new = 0
+    local function Spells(unit, meterType)
+        local okG, guid = pcall(UnitGUID, unit)
+        if not okG or not Plain(guid, "string") then return {} end
+        local okS, src = pcall(meter.GetCombatSessionSourceFromType, CURRENT, meterType, guid)
+        local list = okS and Plain(src, "table") and src.combatSpells
+        return Plain(list, "table") and list or {}
+    end
+    for _, m in ipairs(MK.Team:Members()) do
+        -- Hits: the enemy's name comes with each spell.
+        for _, sp in ipairs(Spells(m.unit, T.DamageTaken)) do
+            local id = Plain(sp, "table") and sp.spellID
+            local det = Plain(sp, "table") and sp.combatSpellDetails
+            local mob = Plain(det, "table") and det.unitName
+            if Plain(id, "number") and not MELEE[id] and Plain(mob, "string") and mob ~= "" and det.isMob == true
+                and not members[mob] then
+                if Briefing.RecordSeen(instanceID, instanceName, mob, id, "hit") then new = new + 1 end
+            end
+        end
+        -- Kicks: the interrupted spell, caster unknown.
+        for _, sp in ipairs(Spells(m.unit, T.Interrupts)) do
+            local id = Plain(sp, "table") and sp.spellID
+            if Plain(id, "number") then
+                local mob = Briefing.Attribute(id, pull, instanceID)
+                if mob then
+                    if Briefing.RecordSeen(instanceID, instanceName, mob, id, "kick") then new = new + 1 end
+                else
+                    MK:Debug("briefing: interrupted spell %d not attributed (pull of %d)", id, (function()
+                        local n = 0
+                        for _ in pairs(pull) do n = n + 1 end
+                        return n
+                    end)())
+                end
+            end
+        end
+    end
+    if new > 0 then
+        MK:Debug("briefing: %d new cast(s) seen in play", new)
+        MK:Fire("BRIEFING_CHANGED")
+    end
+    return new
+end
+
+-- =========================================================================
 -- Your edits (build step 4, Marking > Briefing page): per mob name and spell, a priority and/or a note.
 -- BulwarkDB.marking.briefing.overrides[mobName][spellID] = { prio = "must"|"should"|"info"|"ignore"|nil, note = "..." }
 -- By name, not per dungeon: a mob's casts are the same wherever its name appears.
@@ -328,18 +509,22 @@ end
 -- its casts once (passives left out): { mob = name, boss = bool } and { mob, spell, auto, autoSource, override }.
 -- auto = the priority without your override (data rules or a hint).
 function Briefing.AbilityRows(instanceID)
-    local mobs = MK.MobAbilities and MK.MobAbilities[instanceID]
-    if not mobs then return {} end
-    local names = {}
-    for name in pairs(mobs) do names[#names + 1] = name end
+    local mobs = {}
+    for name in pairs(MK.MobAbilities and MK.MobAbilities[instanceID] or {}) do mobs[name] = true end
+    for name in pairs(Briefing.LearnedMobs(instanceID)) do mobs[name] = true end
+    local names, entries = {}, {}
+    for name in pairs(mobs) do
+        names[#names + 1] = name
+        entries[name] = Briefing.FindEntry(name, instanceID)
+    end
     table.sort(names, function(a, b)
-        local ba, bb = mobs[a].boss == true, mobs[b].boss == true
+        local ba, bb = entries[a].boss == true, entries[b].boss == true
         if ba ~= bb then return bb end
         return a < b
     end)
     local rows = {}
     for _, name in ipairs(names) do
-        local entry = mobs[name]
+        local entry = entries[name]
         local hints = MK.BriefingHints and MK.BriefingHints[instanceID] and MK.BriefingHints[instanceID][name]
         local spells, seen = {}, {}
         for _, spell in ipairs(Abilities.Spells(entry)) do
@@ -347,7 +532,8 @@ function Briefing.AbilityRows(instanceID)
                 seen[spell.id] = true
                 local auto, source = Briefing.Priority(spell, hints and hints[spell.id], nil)
                 spells[#spells + 1] = { mob = name, spell = spell, auto = auto, autoSource = source,
-                                        override = Briefing.GetOverride(name, spell.id) }
+                                        override = Briefing.GetOverride(name, spell.id),
+                                        seen = entry.seen and entry.seen[spell.id] }
             end
         end
         if #spells > 0 then
@@ -382,7 +568,7 @@ function Briefing.Collect()
     local mobs, byName = {}, {}
     for _, rec in ipairs(recs) do
         local name = MK.Learn.NameOf(rec)
-        local entry, realName = Abilities.Find(name, instanceID)
+        local entry, realName = Briefing.FindEntry(name, instanceID)
         if not name then
             summary.unknown = summary.unknown + 1
         elseif not entry then

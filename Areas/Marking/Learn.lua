@@ -246,7 +246,10 @@ frame:SetScript("OnEvent", function(_, event, ...)
         end
     elseif event == "PLAYER_REGEN_ENABLED" then
         -- The meter's session is secret in combat; 2 s after it worked in-game.
-        C_Timer.After(2, function() Learn:ReadMeter() end)
+        C_Timer.After(2, function()
+            Learn:ReadMeter()
+            if MK.Briefing then MK.Briefing.ReadMeter() end   -- casts seen in play (Briefing step 5)
+        end)
     elseif event == "ENCOUNTER_START" then
         inEncounter = true
     elseif event == "ENCOUNTER_END" or event == "PLAYER_ENTERING_WORLD" then

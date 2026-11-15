@@ -365,6 +365,7 @@ local COL_SPELL_W, COL_DEFAULT_W, COL_YOURS_W = 170, 64, 104
 local briefData = {}   -- [row index] = AbilityRows item (plain table, see rowData)
 local briefPage
 local PRIO_TEXT_COLOR = { must = "ffff5555", should = "ffffd100", info = "ff66ccff", ignore = "ff9d9d9d" }
+local SEEN_MARK = " |TInterface\\RaidFrame\\ReadyCheck-Ready:12|t"   -- seen in play (tooltip says how)
 
 local function PrioText(prio)
     return "|c" .. PRIO_TEXT_COLOR[prio] .. L["BRIEF_PRIO_" .. prio] .. "|r"
@@ -380,9 +381,13 @@ local function BriefPrioOptions()
     return opts
 end
 
+-- Dungeons with ability data or with casts seen in play (Forever-only dungeons fill this way).
 local function BriefInstances()
-    local list = {}
-    for id, name in pairs(MK.MobAbilityInstances or {}) do list[#list + 1] = { id = id, name = name } end
+    local list, seen = {}, {}
+    for id, name in pairs(MK.MobAbilityInstances or {}) do list[#list + 1] = { id = id, name = name }; seen[id] = true end
+    for id, name in pairs(MK.Briefing.LearnedInstances()) do
+        if not seen[id] then list[#list + 1] = { id = id, name = name } end
+    end
     table.sort(list, function(a, b) return a.name < b.name end)
     return list
 end
@@ -418,6 +423,10 @@ local function BriefRow(parent, i)
         GameTooltip:SetText(MK.Abilities.Describe(r.spell), 1, 1, 1, 1, true)
         GameTooltip:AddLine(string.format(L["BRIEF_PAGE_DEFAULT_TIP"], PrioText(r.auto),
             L["BRIEF_PAGE_SRC_" .. r.autoSource]), nil, nil, nil, true)
+        if r.seen then
+            GameTooltip:AddLine(string.format(r.seen.how == "kick" and L["BRIEF_SEEN_KICK"] or L["BRIEF_SEEN_HIT"],
+                r.seen.n or 1), 0.4, 1, 0.4, true)
+        end
         GameTooltip:Show()
     end)
     row.spellBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -545,8 +554,11 @@ briefPage = NS:AddPage(area.key, {
     refresh = function(page)
         page.tile:SetChecked(MK:Get("briefTile") and true or false)
         local here = MK.Plates.instanceID
-        if not page.instance or not (MK.MobAbilities and MK.MobAbilities[page.instance]) then
-            page.instance = (here and MK.MobAbilities and MK.MobAbilities[here]) and here or 389   -- Ragefire Chasm
+        local function Known(id)
+            return id and ((MK.MobAbilities and MK.MobAbilities[id]) or next(MK.Briefing.LearnedMobs(id)) ~= nil)
+        end
+        if not Known(page.instance) then
+            page.instance = Known(here) and here or 389   -- Ragefire Chasm
         end
         page.zoneDrop:Refresh()
         local rows = MK.Briefing.AbilityRows(page.instance)
@@ -569,7 +581,7 @@ briefPage = NS:AddPage(area.key, {
                 if isMob then
                     row.mob:SetText(r.mob .. (r.boss and ("  |cff9d9d9d" .. L["BRIEF_BOSS"] .. "|r") or ""))
                 else
-                    row.spell:SetText(MK.Briefing.SpellName(r.spell.id))
+                    row.spell:SetText(MK.Briefing.SpellName(r.spell.id) .. (r.seen and SEEN_MARK or ""))
                     row.auto:SetText(PrioText(r.auto))
                     local o = r.override
                     row.prio:SetLabel(o and o.prio and PrioText(o.prio) or DefaultLabel())
