@@ -122,6 +122,7 @@ the pack in view (or a boss you target) has casts worth stopping; click it or pr
 ```
 [Bulwark] Interrupt: {skull} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); Ragefire Shaman: Healing Wave -> Kira (Earth Shock)
 [Bulwark] Best effort: Lightning Bolt, Shadow Bolt
+[Bulwark] Can't interrupt: Frightening Howl (Terrorhowl)
 [Bulwark] Note: Curse of Weakness (Jergosh the Invoker): Curse on the tank: remove it.
 ```
 
@@ -130,6 +131,8 @@ the pack in view (or a boss you target) has casts worth stopping; click it or pr
 - **Who interrupts:** you (the tank) take the most important cast; then one player per caster, fastest interrupt
   first (Earth Shock, Kick, Pummel, Shield Bash, Counterspell), stuns (Hammer of Justice, Bash) only when nobody else
   is free. Other players' interrupts come from their class and level; yours from your spellbook and shield.
+- **Casts kicks can't stop** (the game's own spell data says so): a heal or crowd control goes to a stun if someone
+  has one, otherwise it's listed under *Can't interrupt* so the group knows it's coming; other such casts are left out.
 - **Mobs** are named by Marking (Tab through the pack first); unnamed mobs are never guessed. Marks show as icons.
 - **Learns in play:** after each fight the game's damage meter tells Bulwark which enemy spells hit your group and
   which ones you interrupted; new ones join that mob's casts (Forever-only dungeons fill up this way).

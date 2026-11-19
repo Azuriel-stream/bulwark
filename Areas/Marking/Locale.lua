@@ -215,10 +215,13 @@ L["ABIL_TRIG_hint"] = ""
 L["ABIL_TRIG_wcl"] = ""
 L["ABIL_KICKED"] = "|cff66ff66interruptible|r (players interrupt it in Warcraft Logs runs)"
 L["ABIL_TRIG_seen"] = "seen in play"
+L["ABIL_NO_KICK"] = "|cffff9933can't be kicked|r (stuns stop it)"
 
 -- Briefing (Briefing.lua)
 L["BRIEF_INTERRUPT"] = "Interrupt:"
 L["BRIEF_BEST_EFFORT"] = "Best effort:"
+L["BRIEF_NO_KICK"] = "Can't interrupt:"
+L["BRIEF_NO_KICK_MARK"] = "no kick"
 L["BRIEF_NOTE"] = "Note:"
 L["BRIEF_COUNT"] = "%dx %s"
 L["BRIEF_PRIO_must"] = "must"

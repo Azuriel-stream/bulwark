@@ -36,7 +36,10 @@ function Briefing.DefaultPriority(spell)
     if spell.kind == "other" and not Abilities.Interruptible(spell) then return "ignore" end
     if spell.kind == "cast" then return "should" end   -- seen interrupted in play, kind unknown: worth a kick
     if not Abilities.Interruptible(spell) then return "ignore" end
+    -- Can't be kicked (flag N): a heal or crowd control still matters (a stun stops it, else the group is warned);
+    -- "kick it when free" means nothing for the rest.
     if spell.kind == "heal" or spell.kind == "cc" then return "must" end
+    if spell.nokick then return "ignore" end
     if spell.channel or spell.cast >= SHOULD_CAST or spell.kicked then return "should" end   -- kicked: groups stop it in logs
     return "ignore"
 end
@@ -188,11 +191,27 @@ local function TopItem(mob, prio)
     end
 end
 
+-- The must casts of a mob that this interrupt stops: a stun stops any cast, a kick only kickable ones (no flag N).
+local function Stops(kit, spell)
+    return kit.kind == "stun" or not spell.nokick
+end
+
+local function MustNamesFor(mob, kit)
+    local names, seen = {}, {}
+    for _, item in ipairs(mob.spells) do
+        if item.prio == "must" and Stops(kit, item.spell) then
+            local name = SpellName(item.spell.id)
+            if not seen[name] then seen[name], names[#names + 1] = true, name end
+        end
+    end
+    return names
+end
+
 -- Gives interrupters to the mobs with must casts. members = { { short, kit, tank? } } (kit nil = can't interrupt).
 -- The tank takes the most important must (ties: kill order); then one interrupter per mob ("2x" groups need one each),
--- most important mob first, kickers by shortest cooldown, stunners last. A tank left without a must takes the top
--- should of a boss in view. Sets mob.assigned = { { short, kit } } and mob.covers = spell names watched.
--- Returns the members left over.
+-- most important mob first, kickers by shortest cooldown, stunners last. A must that kicks can't stop (flag N) only
+-- takes a stunner; stunners go to those mobs first. A tank left without a must takes the top kickable should of a boss
+-- in view. Sets mob.assigned = { { short, kit } } and mob.covers = spell names watched. Returns the members left over.
 function Briefing.Assign(mobs, members)
     local order = {}
     for i, mob in ipairs(mobs) do
@@ -206,7 +225,15 @@ function Briefing.Assign(mobs, members)
     end)
     local function Give(mob, member)
         mob.assigned[#mob.assigned + 1] = member
-        mob.covers = mob.covers or Names(mob.spells, "must")
+        mob.covers = mob.covers or {}
+        local have = {}
+        for _, n in ipairs(mob.covers) do have[n] = true end
+        for _, n in ipairs(MustNamesFor(mob, member.kit)) do
+            if not have[n] then mob.covers[#mob.covers + 1] = n end
+        end
+    end
+    local function Wants(mob, member)
+        return #mob.assigned < (mob.count or 1) and #MustNamesFor(mob, member.kit) > 0
     end
     local tank, others = nil, {}
     for _, m in ipairs(members) do
@@ -219,22 +246,32 @@ function Briefing.Assign(mobs, members)
         if a.kit.cd ~= b.kit.cd then return a.kit.cd < b.kit.cd end
         return a.short < b.short
     end)
-    if tank and order[1] then
-        Give(order[1], tank)
-        tank = nil
-    end
-    local nextOther = 1
-    for _, mob in ipairs(order) do
-        while #mob.assigned < (mob.count or 1) and others[nextOther] do
-            Give(mob, others[nextOther])
-            nextOther = nextOther + 1
+    if tank then
+        for _, mob in ipairs(order) do
+            if Wants(mob, tank) then Give(mob, tank); tank = nil; break end
         end
     end
+    local used = {}
+    local function Fill(mob, onlyStun)
+        for i, m in ipairs(others) do
+            if not used[i] and (not onlyStun or m.kit.kind == "stun") and Wants(mob, m) then
+                Give(mob, m)
+                used[i] = true
+            end
+        end
+    end
+    -- Stunners first to the mobs only they can stop (every must there kick-proof), then everyone by importance.
+    for _, mob in ipairs(order) do
+        if #MustNamesFor(mob, { kind = "kick" }) == 0 then Fill(mob, true) end
+    end
+    for _, mob in ipairs(order) do Fill(mob, false) end
     if tank then   -- no must in view: the tank watches the boss's worst cast
         local bestMob, bestItem
         for _, mob in ipairs(mobs) do
             local item = mob.boss and TopItem(mob, "should")
-            if item and (not bestItem or Better(item, bestItem)) then bestMob, bestItem = mob, item end
+            if item and Stops(tank.kit, item.spell) and (not bestItem or Better(item, bestItem)) then
+                bestMob, bestItem = mob, item
+            end
         end
         if bestMob then
             bestMob.assigned[1] = tank
@@ -244,7 +281,9 @@ function Briefing.Assign(mobs, members)
     end
     local left = {}
     if tank then left[1] = tank end
-    for i = nextOther, #others do left[#left + 1] = others[i] end
+    for i, m in ipairs(others) do
+        if not used[i] then left[#left + 1] = m end
+    end
     return left
 end
 
@@ -252,27 +291,39 @@ end
 -- kill order (Assign fills assigned/covers):
 --   [Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); {rt4} Ragefire Shaman: ...
 --   [Bulwark] Best effort: Healing Wave, Lightning Bolt, Shadow Bolt   (musts nobody was free for come first)
+--   [Bulwark] Can't interrupt: Frightening Howl (Terrorhowl)   (kick-proof musts no stunner covers: a heads-up)
 --   [Bulwark] Note: Leech Poison (Witherfang): Poisons the tank.   (every listed cast with a note)
 -- Plain spell names, never links (kb/gotchas.md#spell-link-chat); no bare "|" (#chat-pipe). Empty when there is
 -- nothing to say.
 function Briefing.BuildLines(mobs)
-    local interrupt, best, notes, covered, mustNames, bestSeen = {}, {}, {}, {}, {}, {}
+    local interrupt, best, notes, covered, mustNames, bestSeen, nokick, nokickSeen = {}, {}, {}, {}, {}, {}, {}, {}
     local function AddBest(n)
         if not bestSeen[n] then bestSeen[n], best[#best + 1] = true, n end
     end
     for _, mob in ipairs(mobs) do
         local assigned = mob.assigned or {}
+        local here = {}
         if #assigned > 0 then
             local who = {}
             for _, m in ipairs(assigned) do who[#who + 1] = m.short .. " (" .. SpellName(m.kit.id) .. ")" end
             interrupt[#interrupt + 1] = Briefing.MobLabel(mob) .. ": " .. table.concat(mob.covers, ", ") .. " -> "
                 .. table.concat(who, ", ")
-            for _, n in ipairs(mob.covers) do covered[n] = true end
+            for _, n in ipairs(mob.covers) do covered[n], here[n] = true, true end
         end
-        local must = Names(mob.spells, "must")
-        for _, n in ipairs(must) do mustNames[n] = true end
-        if #must > 0 and #assigned < (mob.count or 1) then
-            for _, n in ipairs(must) do AddBest(n) end   -- nobody (or not enough) for this mob
+        local short = #assigned < (mob.count or 1)   -- nobody (or not enough) for this mob
+        for _, item in ipairs(mob.spells) do
+            if item.prio == "must" then
+                local n = SpellName(item.spell.id)
+                mustNames[n] = true
+                if item.spell.nokick then
+                    local entry = n .. " (" .. mob.name .. ")"
+                    if (short or not here[n]) and not nokickSeen[entry] then
+                        nokickSeen[entry], nokick[#nokick + 1] = true, entry
+                    end
+                elseif short then
+                    AddBest(n)
+                end
+            end
         end
         for _, item in ipairs(mob.spells) do
             if item.note and item.note ~= "" then   -- your note (or a hint's) on any listed cast
@@ -288,6 +339,7 @@ function Briefing.BuildLines(mobs)
     local Wrap, lines = MK.Team.Wrap, {}
     for _, l in ipairs(Wrap(L["BRIEF_INTERRUPT"], interrupt, "; ")) do lines[#lines + 1] = l end
     for _, l in ipairs(Wrap(L["BRIEF_BEST_EFFORT"], best, ", ")) do lines[#lines + 1] = l end
+    for _, l in ipairs(Wrap(L["BRIEF_NO_KICK"], nokick, ", ")) do lines[#lines + 1] = l end
     for _, l in ipairs(Wrap(L["BRIEF_NOTE"], notes, "; ")) do lines[#lines + 1] = l end
     for i, l in ipairs(lines) do lines[i] = l:gsub("|", "/") end   -- a mob or note can't break the message
     return lines
@@ -661,8 +713,11 @@ function Briefing.Preview()
     for _, mob in ipairs(mobs) do
         local parts = {}
         for _, item in ipairs(mob.spells) do
+            local tags = {}
+            if item.source ~= "data" then tags[#tags + 1] = L["BRIEF_SRC_" .. item.source] end
+            if item.spell.nokick then tags[#tags + 1] = L["BRIEF_NO_KICK_MARK"] end
             parts[#parts + 1] = string.format("|c%s%s|r %s%s", PRIO_COLOR[item.prio], L["BRIEF_PRIO_" .. item.prio],
-                SpellName(item.spell.id), item.source ~= "data" and (" (" .. L["BRIEF_SRC_" .. item.source] .. ")") or "")
+                SpellName(item.spell.id), #tags > 0 and (" (" .. table.concat(tags, ", ") .. ")") or "")
         end
         local label = Display(Briefing.MobLabel(mob)) .. (mob.boss and (" " .. L["BRIEF_BOSS"]) or "")
         print("  " .. label .. ": " .. (#parts > 0 and table.concat(parts, ", ") or L["BRIEF_NOTHING_TO_KICK"]))

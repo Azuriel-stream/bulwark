@@ -11,7 +11,8 @@ MK.Abilities = Abilities
 local L, Utils = MK.L, MK.Utils
 
 -- "11986;heal;3000;allyhp;24;24;" -> { id, kind, cast (ms), trigger, rmin, rmax (s), channel, area, kicked, arg }
--- Flags: C channelled, A area, K players interrupted it in Warcraft Logs runs (Forever dungeons).
+-- Flags: C channelled, A area, K players interrupted it in Warcraft Logs runs (Forever dungeons), N kicks fail on it
+-- (the game's data: no silence prevention type; a stun or a kill still stops it).
 function Abilities.ParseSpell(s)
     if type(s) ~= "string" then return nil end
     local id, kind, cast, trigger, rmin, rmax, flags, arg = strsplit(";", s)
@@ -22,13 +23,18 @@ function Abilities.ParseSpell(s)
         id = id, kind = kind or "other", cast = tonumber(cast) or 0, trigger = trigger or "",
         rmin = tonumber(rmin) or 0, rmax = tonumber(rmax) or 0,
         channel = flags:find("C", 1, true) ~= nil, area = flags:find("A", 1, true) ~= nil,
-        kicked = flags:find("K", 1, true) ~= nil, arg = tonumber(arg),
+        kicked = flags:find("K", 1, true) ~= nil, nokick = flags:find("N", 1, true) ~= nil, arg = tonumber(arg),
     }
 end
 
--- A cast that a kick can stop: it has a cast time, is channelled, or players were seen interrupting it.
+-- A cast that can be stopped: it has a cast time, is channelled, or players were seen interrupting it.
 function Abilities.Interruptible(spell)
     return spell.cast > 0 or spell.channel or spell.kicked == true
+end
+
+-- Stopped by a kick (Kick, Pummel, Shield Bash, Counterspell, Earth Shock), not only by a stun.
+function Abilities.Kickable(spell)
+    return Abilities.Interruptible(spell) and not spell.nokick
 end
 
 -- Lowercase name -> { [instanceID] = realName }, built on first use.
@@ -98,6 +104,7 @@ function Abilities.Describe(spell)
             or string.format(L["ABIL_EVERY_RANGE"], spell.rmin, spell.rmax)
     end
     if spell.kicked then parts[#parts + 1] = L["ABIL_KICKED"]
+    elseif spell.nokick and Abilities.Interruptible(spell) then parts[#parts + 1] = L["ABIL_NO_KICK"]
     elseif Abilities.Interruptible(spell) then parts[#parts + 1] = L["ABIL_INTERRUPTIBLE"] end
     return SpellName(spell.id) .. ": " .. table.concat(parts, ", ")
 end
