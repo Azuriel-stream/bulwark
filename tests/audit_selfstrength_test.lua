@@ -50,6 +50,26 @@ return function(sim, t)
     Set(BS(5242, { sourceUnit = "party1" }))
     t.ok(H.Find(w, "SELF:BATTLE_SHOUT"), "lower rank, no value: tile shown")
 
+    -- The 15-min 200 AP "Battle Shout" (25101, not a player rank; user 2026-11-19): no source unit (group gone),
+    -- 6 min left. It counts as a stronger shout, with or without a readable value.
+    local function NpcShout(points)
+        local a = BS(25101, { points = points })
+        a.duration, a.expirationTime = 900, w.now + 360
+        return a
+    end
+    Set(NpcShout({ 200 }))
+    t.ok(not H.Find(w, "SELF:BATTLE_SHOUT"), "200 AP non-player shout: no tile")
+    t.eq(tile.item.weaker, nil, "200 AP non-player shout: not weaker")
+    Set(NpcShout(nil))
+    t.ok(not H.Find(w, "SELF:BATTLE_SHOUT"), "200 AP non-player shout, no value: base 200 beats yours")
+    local inGroupList = false
+    for _, g in ipairs(NS.AuditData.GROUP) do
+        if g.key == "BATTLE_SHOUT" then
+            for _, id in ipairs(g.ids) do inGroupList = inGroupList or id == 25101 end
+        end
+    end
+    t.ok(inGroupList, "group Battle Shout (paladin tanks) knows 25101 too")
+
     -- Your own shout teaches its real value (talents); then an untalented rank 3 is weaker than yours
     Set(BS(6192, { sourceUnit = "player", points = { 41 } }))
     t.ok(not H.Find(w, "SELF:BATTLE_SHOUT"), "your own shout: no tile")

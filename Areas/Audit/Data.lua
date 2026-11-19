@@ -16,11 +16,13 @@ local D = NS.AuditData
 -- else's copy counts only when it's at least as strong as yours (Scanner.CompareSelfBuff); a weaker one = missing.
 D.SELF = {
     WARRIOR = {
-        { key = "BATTLE_SHOUT", ids = { 6673, 5242, 6192, 11549, 11550, 11551, 25289, 27578 }, warn = 15,
+        { key = "BATTLE_SHOUT", ids = { 6673, 5242, 6192, 11549, 11550, 11551, 25289, 27578, 25101 }, warn = 15,
           requireKnown = true, alert = true, duration = 180, icon = "Interface\\Icons\\Ability_Warrior_BattleShout",
-          -- attack power per rank, wowf 1.60.1.70938 [data]; 27578 is an old 120 s version (not a player rank)
+          -- attack power per rank, wowf 1.60.1.70938 [data]; 27578 is an old 120 s version (not a player rank);
+          -- 25101 = a non-player "Battle Shout", 200 AP for 15 min [data], seen on the user 2026-11-19 (it showed as
+          -- missing while it wasn't listed). NPC 20/30 s versions (24438, 26043) left out: too short to matter.
           strength = { [6673] = 9, [5242] = 21, [6192] = 33, [11549] = 51, [11550] = 78, [11551] = 111,
-                       [25289] = 139, [27578] = 185 } },
+                       [25289] = 139, [27578] = 185, [25101] = 200 } },
         { key = "DEFENSIVE_STANCE", stance = 71, skipSolo = true, icon = "Interface\\Icons\\Ability_Warrior_DefensiveStance" },
     },
     PALADIN = {
@@ -44,7 +46,7 @@ D.GROUP = {
     { key = "ARCANE_INTELLECT", provider = "MAGE", icon = "Interface\\Icons\\Spell_Holy_MagicalSentry", skipFor = { WARRIOR = true },
       ids = { 1459, 1460, 1461, 10156, 10157 }, greater = { 23028 } },
     { key = "BATTLE_SHOUT", provider = "WARRIOR", icon = "Interface\\Icons\\Ability_Warrior_BattleShout", subgroupOnly = true, skipFor = { WARRIOR = true },
-      ids = { 6673, 5242, 6192, 11549, 11550, 11551, 25289, 27578 } },
+      ids = { 6673, 5242, 6192, 11549, 11550, 11551, 25289, 27578, 25101 } },
     { key = "PALADIN_AURA", provider = "PALADIN", icon = "Interface\\Icons\\Spell_Holy_DevotionAura", subgroupOnly = true, label = "PALADIN_AURA",
       castId = 465, -- Devotion Aura: what a paladin tank casts when no aura is up
       ids = { 465, 643, 1032, 10290, 10291, 10292, 10293,   -- Devotion
