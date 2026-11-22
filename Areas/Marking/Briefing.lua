@@ -35,7 +35,8 @@ function Briefing.DefaultPriority(spell)
     -- interrupted in logs: a cast like any other (falls through to the should rule below).
     if spell.kind == "other" and not Abilities.Interruptible(spell) then return "ignore" end
     if spell.kind == "cast" then return "should" end   -- seen interrupted in play, kind unknown: worth a kick
-    if not Abilities.Interruptible(spell) then return "ignore" end
+    -- Instant fear, charm or sleep (flag F): nothing to kick, but a shaman's Tremor Totem breaks it (Assign).
+    if not Abilities.Interruptible(spell) then return spell.tremor and "info" or "ignore" end
     -- Can't be kicked (flag N): a heal or crowd control still matters (a stun stops it, else the group is warned);
     -- "kick it when free" means nothing for the rest.
     if spell.kind == "heal" or spell.kind == "cc" then return "must" end
@@ -129,7 +130,7 @@ Briefing.SpellName = SpellName
 local function Names(items, prio)
     local names, seen = {}, {}
     for _, item in ipairs(items) do
-        if item.prio == prio then
+        if item.prio == prio and not item.totem then
             local name = SpellName(item.spell.id)
             if not seen[name] then seen[name], names[#names + 1] = true, name end
         end
@@ -166,6 +167,17 @@ Briefing.KIT = {
     DRUID   = { { id = 5211, ids = { 5211, 6798, 8983 }, level = 14, cd = 60, kind = "stun" } },     -- Bash (bear form)
 }
 
+-- Tremor Totem [data: wowf 8143, level 18, 300 s; 8145 pulses 8146 every 4 s, which dispels mechanics charm, fear and
+-- sleep from party members in range]. Not an interrupt: it breaks fears (flag F), so those casts need no kicker.
+Briefing.TREMOR = { id = 8143, ids = { 8143 }, level = 18 }
+
+-- Whether a player drops Tremor Totem: shamans by level; you (own) by your spellbook.
+function Briefing.HasTremor(class, level, own)
+    if class ~= "SHAMAN" then return false end
+    if own then return own.known(Briefing.TREMOR.ids) == true end
+    return (tonumber(level) or 0) >= Briefing.TREMOR.level
+end
+
 -- The interrupt a player brings, or nil. own = { known = fn(ids), shield = bool } for the player (exact); others go
 -- by class and level. Best = a kick before a stun, then the shorter cooldown.
 function Briefing.KitFor(class, level, own)
@@ -185,9 +197,10 @@ function Briefing.KitFor(class, level, own)
     return best
 end
 
+-- Casts a Tremor Totem covers (item.totem, set by Assign) need no interrupter.
 local function TopItem(mob, prio)
     for _, item in ipairs(mob.spells) do
-        if item.prio == prio then return item end
+        if item.prio == prio and not item.totem then return item end
     end
 end
 
@@ -199,7 +212,7 @@ end
 local function MustNamesFor(mob, kit)
     local names, seen = {}, {}
     for _, item in ipairs(mob.spells) do
-        if item.prio == "must" and Stops(kit, item.spell) then
+        if item.prio == "must" and not item.totem and Stops(kit, item.spell) then
             local name = SpellName(item.spell.id)
             if not seen[name] then seen[name], names[#names + 1] = true, name end
         end
@@ -211,8 +224,21 @@ end
 -- The tank takes the most important must (ties: kill order); then one interrupter per mob ("2x" groups need one each),
 -- most important mob first, kickers by shortest cooldown, stunners last. A must that kicks can't stop (flag N) only
 -- takes a stunner; stunners go to those mobs first. A tank left without a must takes the top kickable should of a boss
--- in view. Sets mob.assigned = { { short, kit } } and mob.covers = spell names watched. Returns the members left over.
+-- in view. A shaman in the group (member.tremor; the highest level) drops Tremor Totem for every listed fear, charm or
+-- sleep (flag F): those casts get item.totem = that member and take no interrupter. Sets mob.assigned =
+-- { { short, kit } } and mob.covers = spell names watched. Returns the members left over (the totem shaman still
+-- interrupts).
 function Briefing.Assign(mobs, members)
+    local totem
+    for _, m in ipairs(members) do
+        local lv, best = tonumber(m.level) or 0, totem and (tonumber(totem.level) or 0)
+        if m.tremor and (not totem or lv > best or (lv == best and m.short < totem.short)) then totem = m end
+    end
+    for _, mob in ipairs(mobs) do
+        for _, item in ipairs(mob.spells) do
+            item.totem = (totem and item.spell.tremor and item.prio ~= "ignore") and totem or nil
+        end
+    end
     local order = {}
     for i, mob in ipairs(mobs) do
         mob.assigned, mob.covers, mob.pos = {}, nil, i
@@ -290,6 +316,7 @@ end
 -- Chat lines for a briefed pack. mobs = { { name, icon?, count?, spells = MobSpells list, assigned?, covers? } } in
 -- kill order (Assign fills assigned/covers):
 --   [Bulwark] Interrupt: {rt8} Ragefire Shaman: Healing Wave -> Tankard (Shield Bash); {rt4} Ragefire Shaman: ...
+--   [Bulwark] Tremor Totem -> Rainclaw: Frightening Howl (Terrorhowl)   (fears a shaman's totem breaks)
 --   [Bulwark] Best effort: Healing Wave, Lightning Bolt, Shadow Bolt   (musts nobody was free for come first)
 --   [Bulwark] Can't interrupt: Frightening Howl (Terrorhowl)   (kick-proof musts no stunner covers: a heads-up)
 --   [Bulwark] Note: Leech Poison (Witherfang): Poisons the tank.   (every listed cast with a note)
@@ -297,6 +324,7 @@ end
 -- nothing to say.
 function Briefing.BuildLines(mobs)
     local interrupt, best, notes, covered, mustNames, bestSeen, nokick, nokickSeen = {}, {}, {}, {}, {}, {}, {}, {}
+    local tremor, tremorSeen, totem = {}, {}, nil
     local function AddBest(n)
         if not bestSeen[n] then bestSeen[n], best[#best + 1] = true, n end
     end
@@ -312,7 +340,11 @@ function Briefing.BuildLines(mobs)
         end
         local short = #assigned < (mob.count or 1)   -- nobody (or not enough) for this mob
         for _, item in ipairs(mob.spells) do
-            if item.prio == "must" then
+            if item.totem then
+                totem = totem or item.totem
+                local entry = SpellName(item.spell.id) .. " (" .. mob.name .. ")"
+                if not tremorSeen[entry] then tremorSeen[entry], tremor[#tremor + 1] = true, entry end
+            elseif item.prio == "must" then
                 local n = SpellName(item.spell.id)
                 mustNames[n] = true
                 if item.spell.nokick then
@@ -338,6 +370,9 @@ function Briefing.BuildLines(mobs)
     end
     local Wrap, lines = MK.Team.Wrap, {}
     for _, l in ipairs(Wrap(L["BRIEF_INTERRUPT"], interrupt, "; ")) do lines[#lines + 1] = l end
+    if totem then
+        for _, l in ipairs(Wrap(string.format(L["BRIEF_TREMOR"], totem.short), tremor, ", ")) do lines[#lines + 1] = l end
+    end
     for _, l in ipairs(Wrap(L["BRIEF_BEST_EFFORT"], best, ", ")) do lines[#lines + 1] = l end
     for _, l in ipairs(Wrap(L["BRIEF_NO_KICK"], nokick, ", ")) do lines[#lines + 1] = l end
     for _, l in ipairs(Wrap(L["BRIEF_NOTE"], notes, "; ")) do lines[#lines + 1] = l end
@@ -684,7 +719,8 @@ function Briefing.Roster()
             local isMe = m.unit == "player" or UnitIsUnit(m.unit, "player") == true
             local own = isMe and { known = NS.Utils.KnowsAny, shield = NS.Utils.HasShield() } or nil
             list[#list + 1] = { short = m.short or m.name, class = m.class, level = m.level, tank = isMe,
-                                kit = Briefing.KitFor(m.class, m.level, own) }
+                                kit = Briefing.KitFor(m.class, m.level, own),
+                                tremor = Briefing.HasTremor(m.class, m.level, own) }
         end
     end
     return list
@@ -716,6 +752,7 @@ function Briefing.Preview()
             local tags = {}
             if item.source ~= "data" then tags[#tags + 1] = L["BRIEF_SRC_" .. item.source] end
             if item.spell.nokick then tags[#tags + 1] = L["BRIEF_NO_KICK_MARK"] end
+            if item.totem then tags[#tags + 1] = L["BRIEF_TREMOR_MARK"] end
             parts[#parts + 1] = string.format("|c%s%s|r %s%s", PRIO_COLOR[item.prio], L["BRIEF_PRIO_" .. item.prio],
                 SpellName(item.spell.id), #tags > 0 and (" (" .. table.concat(tags, ", ") .. ")") or "")
         end

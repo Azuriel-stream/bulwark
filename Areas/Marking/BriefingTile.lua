@@ -26,11 +26,12 @@ Tile.current = nil        -- { mobs, lines, text, label } of the briefing the ti
 -- Pure part
 -- =========================================================================
 
--- Worth a tile: a mob with a must cast, or a boss with anything listed (its should goes to the tank).
+-- Worth a tile: a mob with a must cast or a fear a shaman's Tremor Totem covers (item.totem, after Assign), or a boss
+-- with anything listed (its should goes to the tank).
 function Briefing.Worth(mobs)
     for _, mob in ipairs(mobs) do
         for _, item in ipairs(mob.spells) do
-            if item.prio == "must" or mob.boss then return true end
+            if item.prio == "must" or item.totem or mob.boss then return true end
         end
     end
     return false
@@ -42,7 +43,7 @@ function Briefing.TileLabel(mobs)
     for _, mob in ipairs(mobs) do
         local listed = false
         for _, item in ipairs(mob.spells) do
-            if item.prio == "must" or mob.boss then listed = true end
+            if item.prio == "must" or item.totem or mob.boss then listed = true end
         end
         if listed then names[#names + 1] = Briefing.MobLabel(mob) end
     end
