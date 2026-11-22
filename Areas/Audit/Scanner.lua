@@ -14,7 +14,7 @@ local queued = false
 local function cfg() return NS.db.audit end
 
 -- plan.tiles = ordered items: { tileKey, key, label, spellId, messageKey, provider, subgroupOnly, watchIds, ids, warn, expiresAt,
---                               action = { type = "spell"|"request"|"bags", spell, unit } }
+--                               action = { type = "spell"|"item"|"request"|"bags", spell, item, unit } }
 -- plan.dispelActions = { [dispelType] = action } for the debuff tiles to show
 Scanner.plan = { tiles = {} }
 
@@ -179,6 +179,49 @@ function Scanner.MoveBlessing(index, direction)
     list[index], list[target] = list[target], list[index]
 end
 
+-- Your best scroll of a kind that you can use (level) and carry, or nil.
+local function BestScroll(def)
+    for _, rank in ipairs(def.ranks) do
+        if (C_Item.GetItemCount(rank.item) or 0) > 0 then
+            local ok, usable = pcall(C_Item.IsUsableItem, rank.item)
+            if not ok or usable then return rank end
+        end
+    end
+end
+
+local function GroupDef(key)
+    for _, g in ipairs(D.GROUP) do
+        if g.key == key then return g end
+    end
+end
+
+-- Scroll tiles (Data.lua D.SCROLLS): only for scrolls you carry, and only for buffs nobody in the group gives you.
+-- Click = use the scroll on yourself (unit = player: scrolls buff your target otherwise).
+function Scanner.ScrollTiles(class, solo, byId)
+    local Roster = NS.AuditRoster
+    local out = {}
+    for _, def in ipairs(D.SCROLLS) do
+        local g = def.group and GroupDef(def.group)
+        local covered = (def.skipFor and def.skipFor[class])
+            or (g and not solo and Roster:Count(g.provider, g.subgroupOnly) > 0) -- the group tile asks them instead
+            or (g and FindAura(byId, MergeIds(g.ids, g.greater)) ~= nil)        -- the class buff is already on you
+        local rank = not covered and BestScroll(def)
+        if rank then
+            local spells = {}
+            for _, r in ipairs(def.ranks) do spells[#spells + 1] = r.spell end
+            local idSet = Utils.ToSet(spells)
+            local name = C_Item.GetItemNameByID(rank.item)
+            out[#out + 1] = {
+                tileKey = "SCROLL:" .. def.key, key = "SCROLL_" .. def.key,
+                label = (type(name) == "string" and name) or L["SCROLL_" .. def.key],
+                ids = idSet, warn = CONSUMABLE_WARN, expiresAt = ExpiryOf(FindAura(byId, idSet)),
+                action = { type = "item", item = "item:" .. rank.item, unit = "player" },
+            }
+        end
+    end
+    return out
+end
+
 local SLOT_COUNT = 18
 local function GearTile(key, detail)
     return { tileKey = "GEAR:" .. key, key = key, label = L["GEAR_" .. key], detail = detail, alwaysShow = true }
@@ -311,6 +354,10 @@ function Scanner:BuildPlan(helpful)
         local hasEnchant, secondsLeft = MainHandEnchant()
         if hasEnchant then
             weapon.expiresAt = secondsLeft > 0 and (GetTime() + secondsLeft) or 0
+        end
+        -- Scrolls (user 2026-11-22): same in a group / solo choice
+        if c.checkScrolls then
+            for _, item in ipairs(Scanner.ScrollTiles(class, solo, byId)) do tiles[#tiles + 1] = item end
         end
     end
 

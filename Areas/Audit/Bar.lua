@@ -108,6 +108,15 @@ local function TileDefs(class)
     defs[#defs + 1] = { tileKey = "CONS:ELIXIR", kind = "aura", ids = D.ELIXIRS, icon = D.ICONS.ELIXIR, warn = CONSUMABLE_WARN }
     defs[#defs + 1] = { tileKey = "CONS:FLASK", kind = "aura", ids = D.FLASKS, icon = D.ICONS.FLASK, warn = CONSUMABLE_WARN }
     defs[#defs + 1] = { tileKey = "CONS:WEAPON_BUFF", kind = "enchant", icon = D.ICONS.WEAPON_BUFF, warn = CONSUMABLE_WARN }
+    for _, s in ipairs(D.SCROLLS) do
+        if not (s.skipFor and s.skipFor[class]) then
+            local ids = {}
+            for _, r in ipairs(s.ranks) do ids[#ids + 1] = r.spell end
+            local ok, icon = pcall(C_Item.GetItemIconByID, s.ranks[1].item)
+            defs[#defs + 1] = { tileKey = "SCROLL:" .. s.key, kind = "aura", ids = ids,
+                icon = (ok and icon) or D.ICONS.SCROLL, warn = CONSUMABLE_WARN }
+        end
+    end
     defs[#defs + 1] = { tileKey = "HEALTHSTONE", kind = "plain", icon = D.ICONS.HEALTHSTONE }
     -- Tank gear warnings (Scanner step 5)
     for _, key in ipairs({ "DEFENSE_SKILL", "NO_SHIELD", "DURABILITY" }) do
@@ -150,7 +159,7 @@ local function NewContainer(parent)
     return container
 end
 
-local HINTS = { spell = "HINT_CAST", request = "HINT_REQUEST", bags = "HINT_BAGS" }
+local HINTS = { spell = "HINT_CAST", item = "HINT_USE_SCROLL", request = "HINT_REQUEST", bags = "HINT_BAGS" }
 
 -- Our tooltip (visible tiles only: hidden tiles have their mouse disabled)
 local function ShowTooltip(tile)
@@ -335,15 +344,11 @@ local function SetupTile(tile, item)
     tile.item = item
     Bar.ShowSlot(tile, not item.weaker)
     local action = item.action or {}
-    if action.type == "spell" then
-        tile:SetAttribute("type", "spell")
-        tile:SetAttribute("spell", action.spell)
-        tile:SetAttribute("unit", action.unit)
-    else
-        tile:SetAttribute("type", nil)
-        tile:SetAttribute("spell", nil)
-        tile:SetAttribute("unit", nil)
-    end
+    local secure = action.type == "spell" or action.type == "item"
+    tile:SetAttribute("type", secure and action.type or nil)
+    tile:SetAttribute("spell", action.type == "spell" and action.spell or nil)
+    tile:SetAttribute("item", action.type == "item" and action.item or nil)
+    tile:SetAttribute("unit", secure and action.unit or nil)
 end
 
 local function PreviewPlan()

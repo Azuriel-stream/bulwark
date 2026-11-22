@@ -72,6 +72,9 @@ all good. Each tile shows the live buff and timer even in combat.
   when several can) and speak in your race's voice: each of Forever's races, High Order and Windshaper Skyborne
   included, has its own lines (Audit > Checks > Messages; off = plain lines).
 - **Consumables:** Well Fed and the weapon buff, optionally an elixir or a flask; click to open your bags.
+- **Scrolls:** a scroll in your bags for a buff nobody in the group gives you (Stamina without a priest; Intellect
+  and Spirit for paladins without a mage or priest; Strength, Agility and Protection always); click to use your best
+  one on yourself.
 - **Healthstone:** when a warlock is in the group and you carry none.
 - **Debuffs:** one tile per debuff type you or your group can remove; click to dispel yourself or ask. They sit in
   their own row: keep it near your character and the buff tiles somewhere else, each with its own size.

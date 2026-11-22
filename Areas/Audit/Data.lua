@@ -161,6 +161,34 @@ D.FLASKS = {
     1293743, -- Flask of Natural Swiftness
 }
 
+-- Scrolls (user 2026-11-22): a tile when a scroll in your bags would give a buff nobody in the group puts on you.
+-- Click = use your best usable rank on yourself. `group` = the D.GROUP buff it stands in for: offered only when no
+-- provider class is in the group and that buff isn't on you (the stronger of the two replaces the weaker [in-game
+-- 2026-11-22, Fortitude vs Scroll of Stamina]). No `group` = no class buff gives it: always offered.
+-- Shaman totems (Strength of Earth, Grace of Air) stack with the scrolls [in-game 2026-11-22], so they don't hide a tile.
+-- `ranks` best first: item ID -> the buff spell it casts [data: ItemXItemEffect + ItemEffect + SpellEffect,
+-- wowf 1.60.1.71037] and its value.
+D.SCROLLS = {
+    { key = "STAMINA", group = "FORTITUDE", ranks = {
+        { item = 10307, spell = 12178, value = 16 }, { item = 4422, spell = 8101, value = 12 },
+        { item = 1711, spell = 8100, value = 8 }, { item = 1180, spell = 8099, value = 4 } } },
+    { key = "PROTECTION", ranks = {   -- armor; the buff is named "Armor", like Elixir of Defense: IDs only
+        { item = 10305, spell = 12175, value = 240 }, { item = 4421, spell = 8095, value = 180 },
+        { item = 1478, spell = 8094, value = 120 }, { item = 3013, spell = 8091, value = 60 } } },
+    { key = "STRENGTH", ranks = {
+        { item = 10310, spell = 12179, value = 17 }, { item = 4426, spell = 8120, value = 13 },
+        { item = 2289, spell = 8119, value = 9 }, { item = 954, spell = 8118, value = 5 } } },
+    { key = "AGILITY", ranks = {
+        { item = 10309, spell = 12174, value = 17 }, { item = 4425, spell = 8117, value = 13 },
+        { item = 1477, spell = 8116, value = 9 }, { item = 3012, spell = 8115, value = 5 } } },
+    { key = "INTELLECT", group = "ARCANE_INTELLECT", skipFor = { WARRIOR = true }, ranks = {
+        { item = 10308, spell = 12176, value = 16 }, { item = 4419, spell = 8098, value = 12 },
+        { item = 2290, spell = 8097, value = 8 }, { item = 955, spell = 8096, value = 4 } } },
+    { key = "SPIRIT", group = "SPIRIT", skipFor = { WARRIOR = true }, ranks = {
+        { item = 10306, spell = 12177, value = 15 }, { item = 4424, spell = 8114, value = 11 },
+        { item = 1712, spell = 8113, value = 7 }, { item = 1181, spell = 8112, value = 3 } } },
+}
+
 D.HEALTHSTONES = { 5512, 19004, 19005, 5511, 19006, 19007, 5509, 19008, 19009,
                    5510, 19010, 19011, 9421, 19012, 19013 }
 
@@ -171,6 +199,7 @@ D.ICONS = {
     ELIXIR = "Interface\\Icons\\INV_Potion_32",
     FLASK = "Interface\\Icons\\INV_Potion_62",
     HEALTHSTONE = "Interface\\Icons\\INV_Stone_04",
+    SCROLL = "Interface\\Icons\\INV_Scroll_07",
     DEFENSE_SKILL = "Interface\\Icons\\Ability_Defend",
     NO_SHIELD = "Interface\\Icons\\INV_Shield_06",
     DURABILITY = "Interface\\Icons\\Trade_BlackSmithing",

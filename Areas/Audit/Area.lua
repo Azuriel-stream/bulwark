@@ -23,6 +23,7 @@ NS.DefaultConfig.audit = {
     consumableLevel = 1,        -- 1 = food only, 2 = + elixir, 3 = + flask
     consumablesInGroup = true,  -- check consumables in a party or raid
     consumablesSolo = false,    -- check consumables when ungrouped (both on = always)
+    checkScrolls = true,        -- scroll tiles for buffs nobody in the group gives (part of Consumables)
     checkHealthstone = true,
     checkDebuffs = true,
     hideResting = true,         -- no buff/consumable tiles in a city or inn (gear warnings and debuffs stay)
@@ -130,6 +131,11 @@ NS:AddPage(area.key, {
         end)
         page.consLevel:SetPoint("TOPLEFT", 16, -70)
         Kit.Tooltip(page.consLevel, L["AUDIT_CARD_CONSUMABLES"], L["AUDIT_CONS_DESC"])
+        page.scrolls = Kit.Checkbox(cons, L["AUDIT_CONS_SCROLLS"], L["AUDIT_CONS_SCROLLS_DESC"], function(checked)
+            cfg().checkScrolls = checked
+            Rescan()
+        end)
+        page.scrolls:SetPoint("TOPLEFT", 312, -68)
         page.consNote = Note(cons, L["AUDIT_CONS_DESC"], 16, -100, 600)
 
         local thanks = Card(parent, L["AUDIT_CARD_THANKS"], y - 290, 70)
@@ -153,6 +159,8 @@ NS:AddPage(area.key, {
         end
         page.consLevel:Refresh()
         page.consLevel:SetActive(consOn)
+        page.scrolls:SetChecked(cfg().checkScrolls)
+        page.scrolls:SetActive(consOn)
         Kit.SetTextColor(page.consNote, consOn and C.muted or C.disabled)
         page.gratitude:SetChecked(cfg().gratitude)
         page.raceVoice:SetChecked(cfg().raceVoice)
