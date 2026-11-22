@@ -47,8 +47,10 @@ return function(_, t)
 
     -- 1. RFC: Shaman + Trogg. I take Lightning Bolt (known) and Strike, I kick Healing Wave (known, Shaman's);
     --    Lumen kicks an unknown spell: the Shaman is the only caster in the pull.
-    enemies = { { name = "Ragefire Shaman", classFilename = "PALADIN", classification = "elite" },
-                { name = "Ragefire Trogg", classFilename = "WARRIOR", classification = "elite" },
+    enemies = { { name = "Ragefire Shaman", classFilename = "PALADIN", classification = "elite", sourceCreatureID = 11319 },
+                { name = "Ragefire Trogg", classFilename = "WARRIOR", classification = "elite", sourceCreatureID = 11318 },
+                -- A mind-controlled paladin (hostile, no creature ID): not a second caster in the pull.
+                { name = "Dragon Thunder", classFilename = "PALADIN", classification = "normal" },
                 { name = "Tankard", isLocalPlayer = true, classFilename = "WARRIOR" } }
     spells = {
         [7] = { [GUID_ME] = { hit(9532, "Ragefire Shaman"), hit(11976, "Ragefire Trogg"), hit(6603, "Ragefire Trogg") } },
@@ -74,7 +76,8 @@ return function(_, t)
     t.eq(rec(RFC, "Ragefire Shaman", 9532).n, 3, "seen count grows (fight + 2 reads)")
 
     -- 2. Two casters in the pull: an unknown kick stays unattributed; a known one still lands.
-    enemies = { { name = "Searing Blade Cultist", classFilename = "PALADIN" }, { name = "Searing Blade Warlock", classFilename = "MAGE" } }
+    enemies = { { name = "Searing Blade Cultist", classFilename = "PALADIN", sourceCreatureID = 11322 },
+               { name = "Searing Blade Warlock", classFilename = "MAGE", sourceCreatureID = 11324 } }
     spells = { [5] = { [GUID_ME] = { kick(99002), kick(20791) } } }
     fight()
     t.eq(rec(RFC, "Searing Blade Cultist", 99002), nil, "ambiguous: not given to the Cultist")
@@ -85,7 +88,8 @@ return function(_, t)
     local NODATA = 9999
     MK.Plates.instanceID = NODATA
     env.GetInstanceInfo = function() return "Test Dungeon", "party", 1, "Normal", 5, 0, false, NODATA, 5, nil, false end
-    enemies = { { name = "Test Grunt", classFilename = "WARRIOR" }, { name = "Test Shaman", classFilename = "MAGE" } }
+    enemies = { { name = "Test Grunt", classFilename = "WARRIOR", sourceCreatureID = 1 },
+               { name = "Test Shaman", classFilename = "MAGE", sourceCreatureID = 2 } }
     spells = { [7] = { [GUID_ME] = { hit(99003, "Test Grunt") } }, [5] = { [GUID_LUMEN] = { kick(99004) } } }
     fight()
     t.ok(rec(NODATA, "Test Grunt", 99003), "no data: hit recorded")

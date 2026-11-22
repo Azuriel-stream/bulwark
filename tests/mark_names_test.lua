@@ -87,12 +87,16 @@ return function(_, t)
     t.eq(table.concat(sigs, ","), "elite|RAGE|917116,elite|RAGE|949470", "data: both bodies the Enforcer uses, stable order")
     zone.sigs["elite|RAGE|949470"] = { type = "TANK", prio = 3 }   -- only the second body has an entry
     meterRows = {
-        { name = "Searing Blade Enforcer", classification = "elite" },
-        { name = "Taragaman the Hungerer", classification = "elite" },
-        { name = "Some Forever Mob", classification = "normal" },        -- not in the data: rules default
-        { name = "Searing Blade Warlock", classification = "elite" },     -- exists: untouched
+        { name = "Searing Blade Enforcer", classification = "elite", sourceCreatureID = 11323 },
+        { name = "Taragaman the Hungerer", classification = "elite", sourceCreatureID = 11520 },
+        { name = "Some Forever Mob", classification = "normal", sourceCreatureID = 258042 }, -- not in the data: rules default
+        { name = "Searing Blade Warlock", classification = "elite", sourceCreatureID = 11324 }, -- exists: untouched
         { name = "Tankard Stoneforge", classification = "", isLocalPlayer = true },
-        { name = sim:maybeSecret("Hidden", true), classification = "elite" },
+        { name = sim:maybeSecret("Hidden", true), classification = "elite", sourceCreatureID = 1 },
+        -- A mind-controlled group member is hostile, so hitting them lists them as an enemy: no creature ID.
+        { name = "Dragon Thunder", classification = "normal", classFilename = "PALADIN" },
+        { name = "Guid Player", classification = "normal", sourceCreatureID = 2, sourceGUID = "Player-1-0ABC" },
+        { name = "Tankard", classification = "normal", sourceCreatureID = 3 },   -- a group member's name
     }
     sim:EnterCombat()
     sim:LeaveCombat()
@@ -104,10 +108,13 @@ return function(_, t)
     t.ok(zone.names["Some Forever Mob"] ~= nil, "unknown mob: rules default while recording")
     t.eq(zone.names["Searing Blade Warlock"].prio, 9, "existing entry still untouched")
     t.eq(zone.names["Tankard Stoneforge"], nil, "the player is skipped")
+    t.eq(zone.names["Dragon Thunder"], nil, "a mind-controlled player (no creature ID) is skipped")
+    t.eq(zone.names["Guid Player"], nil, "a Player- GUID is skipped")
+    t.eq(zone.names["Tankard"], nil, "a group member's name is skipped")
     t.eq(#sim.errors, 0, "no Lua errors (secret name skipped)")
 
     -- Option off, or outside instances: the meter isn't read.
-    meterRows = { { name = "Late Mob", classification = "elite" } }
+    meterRows = { { name = "Late Mob", classification = "elite", sourceCreatureID = 4 } }
     env.BulwarkDB.marking.learnNames = false
     t.eq(Learn:ReadMeter(), 0, "option off: meter ignored")
     env.BulwarkDB.marking.learnNames = true

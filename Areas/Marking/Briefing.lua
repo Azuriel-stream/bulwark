@@ -513,7 +513,7 @@ function Briefing.ReadMeter()
     local sources = ok and Plain(session, "table") and session.combatSources
     for _, src in ipairs(Plain(sources, "table") and sources or {}) do
         local name = Plain(src, "table") and src.name
-        if Plain(name, "string") and name ~= "" and src.isLocalPlayer ~= true then
+        if Plain(name, "string") and name ~= "" and not MK.Learn.IsPlayerRow(src) then   -- e.g. a mind-controlled player
             local entry = Abilities.Find(name, instanceID)
             local cls = src.classFilename
             local caster

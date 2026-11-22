@@ -200,6 +200,23 @@ function Learn.FromMeterRow(instanceID, name, classification)
     return sigs, prio, first and first.level
 end
 
+-- Is this EnemyDamageTaken row a player rather than a mob? A mind-controlled group member is hostile, so the group's
+-- hits on them put them in the enemy list (Krol'dok Stronghold, "Dragon Thunder" recorded as a mob, 2026-11-22).
+-- Mobs carry a creature ID [in-game: every probed row had one]; players never do (Blizzard_DamageMeter's
+-- DamageMeterEntry: isCreature = sourceCreatureID ~= nil). Also: a readable Player- GUID, or a group member's name.
+function Learn.IsPlayerRow(src)
+    if src.isLocalPlayer == true then return true end
+    local id = src.sourceCreatureID
+    if Utils.IsSecret(id) or id == nil then return true end
+    local guid = src.sourceGUID
+    if type(guid) == "string" and not Utils.IsSecret(guid) and guid:find("^Player%-") then return true end
+    local name = src.name
+    for _, m in ipairs(MK.Team:Members()) do
+        if name == m.short or name == m.name then return true end
+    end
+    return false
+end
+
 function Learn:ReadMeter()
     if not MK.isEnabled or not MK:Get("learnNames") or not MK.Plates.inInstance or InCombatLockdown() then return 0 end
     local meter, E = C_DamageMeter, Enum
@@ -212,7 +229,7 @@ function Learn:ReadMeter()
     local added = 0
     for _, src in ipairs(sources) do
         local name = type(src) == "table" and not Utils.IsSecret(src) and src.name
-        if type(name) == "string" and not Utils.IsSecret(name) and name ~= "" and src.isLocalPlayer ~= true then
+        if type(name) == "string" and not Utils.IsSecret(name) and name ~= "" and not Learn.IsPlayerRow(src) then
             local class = src.classification
             if Utils.IsSecret(class) or type(class) ~= "string" then class = nil end
             local sigs, prio, level = Learn.FromMeterRow(MK.Plates.instanceID, name, class)
