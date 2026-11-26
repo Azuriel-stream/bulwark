@@ -205,7 +205,9 @@ local function TopItem(mob, prio)
 end
 
 -- The must casts of a mob that this interrupt stops: a stun stops any cast, a kick only kickable ones (no flag N).
+-- Nothing stops an unstoppable one (flag U: it stuns everyone around as it starts): it stays a heads-up.
 local function Stops(kit, spell)
+    if spell.unstoppable then return false end
     return kit.kind == "stun" or not spell.nokick
 end
 
@@ -223,7 +225,7 @@ end
 -- Gives interrupters to the mobs with must casts. members = { { short, kit, tank? } } (kit nil = can't interrupt).
 -- The tank takes the most important must (ties: kill order); then one interrupter per mob ("2x" groups need one each),
 -- most important mob first, kickers by shortest cooldown, stunners last. A must that kicks can't stop (flag N) only
--- takes a stunner; stunners go to those mobs first. A tank left without a must takes the top kickable should of a boss
+-- takes a stunner; stunners go to those mobs first. An unstoppable must (flag U) takes nobody (a heads-up line). A tank left without a must takes the top kickable should of a boss
 -- in view. A shaman in the group (member.tremor; the highest level) drops Tremor Totem for every listed fear, charm or
 -- sleep (flag F): those casts get item.totem = that member and take no interrupter. Sets mob.assigned =
 -- { { short, kit } } and mob.covers = spell names watched. Returns the members left over (the totem shaman still
@@ -751,7 +753,8 @@ function Briefing.Preview()
         for _, item in ipairs(mob.spells) do
             local tags = {}
             if item.source ~= "data" then tags[#tags + 1] = L["BRIEF_SRC_" .. item.source] end
-            if item.spell.nokick then tags[#tags + 1] = L["BRIEF_NO_KICK_MARK"] end
+            if item.spell.unstoppable then tags[#tags + 1] = L["BRIEF_UNSTOPPABLE_MARK"]
+            elseif item.spell.nokick then tags[#tags + 1] = L["BRIEF_NO_KICK_MARK"] end
             if item.totem then tags[#tags + 1] = L["BRIEF_TREMOR_MARK"] end
             parts[#parts + 1] = string.format("|c%s%s|r %s%s", PRIO_COLOR[item.prio], L["BRIEF_PRIO_" .. item.prio],
                 SpellName(item.spell.id), #tags > 0 and (" (" .. table.concat(tags, ", ") .. ")") or "")

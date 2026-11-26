@@ -13,7 +13,8 @@ local L, Utils = MK.L, MK.Utils
 -- "11986;heal;3000;allyhp;24;24;" -> { id, kind, cast (ms), trigger, rmin, rmax (s), channel, area, kicked, arg }
 -- Flags: C channelled, A area, K players interrupted it in Warcraft Logs runs (Forever dungeons), N kicks fail on it
 -- (the game's data: no silence prevention type; a stun or a kill still stops it), F fear, charm or sleep (a shaman's
--- Tremor Totem removes it).
+-- Tremor Totem removes it), U unstoppable: an instant channel that stuns, fears or confuses everyone around it as it
+-- starts (Landslide's Summon Shardlings), so neither a kick nor a stun from those it hits can stop it (implies nokick).
 function Abilities.ParseSpell(s)
     if type(s) ~= "string" then return nil end
     local id, kind, cast, trigger, rmin, rmax, flags, arg = strsplit(";", s)
@@ -24,7 +25,9 @@ function Abilities.ParseSpell(s)
         id = id, kind = kind or "other", cast = tonumber(cast) or 0, trigger = trigger or "",
         rmin = tonumber(rmin) or 0, rmax = tonumber(rmax) or 0,
         channel = flags:find("C", 1, true) ~= nil, area = flags:find("A", 1, true) ~= nil,
-        kicked = flags:find("K", 1, true) ~= nil, nokick = flags:find("N", 1, true) ~= nil,
+        kicked = flags:find("K", 1, true) ~= nil,
+        nokick = flags:find("N", 1, true) ~= nil or flags:find("U", 1, true) ~= nil,
+        unstoppable = flags:find("U", 1, true) ~= nil,
         tremor = flags:find("F", 1, true) ~= nil, arg = tonumber(arg),
     }
 end
@@ -106,6 +109,7 @@ function Abilities.Describe(spell)
             or string.format(L["ABIL_EVERY_RANGE"], spell.rmin, spell.rmax)
     end
     if spell.kicked then parts[#parts + 1] = L["ABIL_KICKED"]
+    elseif spell.unstoppable then parts[#parts + 1] = L["ABIL_UNSTOPPABLE"]
     elseif spell.nokick and Abilities.Interruptible(spell) then parts[#parts + 1] = L["ABIL_NO_KICK"]
     elseif Abilities.Interruptible(spell) then parts[#parts + 1] = L["ABIL_INTERRUPTIBLE"] end
     if spell.tremor then parts[#parts + 1] = L["ABIL_TREMOR"] end

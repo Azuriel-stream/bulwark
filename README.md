@@ -136,6 +136,8 @@ the pack in view (or a boss you target) has casts worth stopping; click it or pr
   is free. Other players' interrupts come from their class and level; yours from your spellbook and shield.
 - **Casts kicks can't stop** (the game's own spell data says so): a heal or crowd control goes to a stun if someone
   has one, otherwise it's listed under *Can't interrupt* so the group knows it's coming; other such casts are left out.
+  A cast that stuns everyone around the moment it starts (Landslide's Summon Shardlings in Maraudon) can't be stopped
+  even by a stun: it's always a heads-up, never assigned.
 - **Fears, charms and sleeps:** with a shaman in the group (level 18+), they're told to drop **Tremor Totem**, and
   those casts need no interrupter (instant fears too, which nobody could kick). Without a shaman, they're handled like
   any other cast.
