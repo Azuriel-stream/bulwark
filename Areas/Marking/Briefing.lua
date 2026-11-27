@@ -770,9 +770,9 @@ function Briefing.Preview()
     local can, cannot = {}, {}
     for _, m in ipairs(roster) do
         if m.kit then
-            can[#can + 1] = string.format("%s (%s, %d s)", m.short, SpellName(m.kit.id), m.kit.cd)
+            can[#can + 1] = string.format("%s (%s, %d s)", Utils.ClassColored(m.short, m.class), SpellName(m.kit.id), m.kit.cd)
         else
-            cannot[#cannot + 1] = m.short
+            cannot[#cannot + 1] = Utils.ClassColored(m.short, m.class)
         end
     end
     print("  " .. string.format(L["BRIEF_INTERRUPTERS"], #can > 0 and table.concat(can, ", ") or L["BRIEF_NONE"]))
@@ -782,7 +782,7 @@ function Briefing.Preview()
         print("  " .. L["BRIEF_NOTHING"])
     else
         print("  " .. L["BRIEF_WOULD_POST"])
-        for _, l in ipairs(lines) do print("    " .. Display(l)) end
+        for _, l in ipairs(lines) do print("    " .. Display(MK.Team.ColorNames(l))) end
     end
 end
 

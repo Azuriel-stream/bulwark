@@ -7,6 +7,7 @@ local RFC = 389
 local function rfc(s)
     H.install(s)
     s.zone = "Ragefire Chasm"
+    s.env.RAID_CLASS_COLORS = {}   -- names stay plain here (colours: mark_briefcolors_test.lua)
     s.env.IsInInstance = function() return true, "party" end
     s.env.GetInstanceInfo = function() return "Ragefire Chasm", "party", 1, "Normal", 5, 0, false, RFC, 5, nil, false end
 end

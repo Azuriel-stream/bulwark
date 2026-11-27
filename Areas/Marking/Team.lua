@@ -264,6 +264,30 @@ function Team:BuildAnnouncement()
     return lines
 end
 
+-- Class colours for group members' names in an announcement line (Briefing and kill order). Player chat can't carry
+-- colour codes (only links are coloured), so the lines go out plain and are coloured where they are shown: local
+-- prints, and the chat filter below for the posted lines (yours and other Bulwark users'). Whole words only, one
+-- pass, so a name never matches inside another word or inside a colour code already added.
+function Team.ColorNames(msg, members)
+    local class = {}
+    for _, m in ipairs(members or Team:Members()) do
+        if m.short and m.class then class[m.short] = m.class end
+    end
+    if next(class) == nil then return msg end
+    return (msg:gsub("[%a\128-\255]+", function(word)
+        if class[word] then return Utils.ClassColored(word, class[word]) end
+    end))
+end
+
+local CHAT_EVENTS = { "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RAID", "CHAT_MSG_RAID_LEADER" }
+local function ChatFilter(_, _, msg, ...)
+    local prefix = L["ANNOUNCE_PREFIX"]
+    if type(msg) == "string" and not Utils.IsSecret(msg) and msg:sub(1, #prefix) == prefix then
+        return false, Team.ColorNames(msg), ...
+    end
+    return false, msg, ...
+end
+
 -- Posts lines to raid/party chat; solo (or while addon chat is restricted) prints them instead.
 function Team:Send(lines)
     local channel = IsInRaid() and "RAID" or (IsInGroup() and "PARTY") or nil
@@ -273,7 +297,7 @@ function Team:Send(lines)
     end
     for _, msg in ipairs(lines) do
         if not channel then
-            MK:Print(L["ANNOUNCE_SOLO"], msg)
+            MK:Print(L["ANNOUNCE_SOLO"], Team.ColorNames(msg))
         else
             local ok, err = pcall(C_ChatInfo.SendChatMessage, msg, channel)
             if not ok then MK:Print(L["ANNOUNCE_FAILED"], tostring(err), msg) end
@@ -297,8 +321,16 @@ end
 
 function Team:OnEnable()
     frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+    local util = ChatFrameUtil
+    if util and util.AddMessageEventFilter then
+        for _, ev in ipairs(CHAT_EVENTS) do util.AddMessageEventFilter(ev, ChatFilter) end
+    end
 end
 
 function Team:OnDisable()
     frame:UnregisterAllEvents()
+    local util = ChatFrameUtil
+    if util and util.RemoveMessageEventFilter then
+        for _, ev in ipairs(CHAT_EVENTS) do util.RemoveMessageEventFilter(ev, ChatFilter) end
+    end
 end
