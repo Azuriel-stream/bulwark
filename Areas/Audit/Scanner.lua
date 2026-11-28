@@ -299,7 +299,10 @@ function Scanner:BuildPlan(helpful)
                 if def.strength and item.expiresAt ~= nil then
                     -- someone else's weaker copy: treat as missing (the tile hides its icon; Bar.lua)
                     item.weaker = Scanner.CompareSelfBuff(def, FindAura(byId, item.ids))
-                    if item.weaker then item.expiresAt = nil end
+                    if item.weaker then
+                        item.expiresAt = nil
+                        NS.FieldTests:Saw("audit-other-shout", item.weaker)
+                    end
                 end
                 item.action = CastOrRequest(def.ids)
                 item.ownCast = def.alert -- SelfAlert keeps expiresAt current from your own casts, even in combat

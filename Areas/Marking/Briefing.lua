@@ -515,7 +515,8 @@ function Briefing.ReadMeter()
     local sources = ok and Plain(session, "table") and session.combatSources
     for _, src in ipairs(Plain(sources, "table") and sources or {}) do
         local name = Plain(src, "table") and src.name
-        if Plain(name, "string") and name ~= "" and not MK.Learn.IsPlayerRow(src) then   -- e.g. a mind-controlled player
+        if Plain(name, "string") and name ~= "" and not MK.MobDB.IsUnknownName(name)
+            and not MK.Learn.IsPlayerRow(src) then   -- e.g. a mind-controlled player
             local entry = Abilities.Find(name, instanceID)
             local cls = src.classFilename
             local caster
@@ -538,14 +539,38 @@ function Briefing.ReadMeter()
         local list = okS and Plain(src, "table") and src.combatSpells
         return Plain(list, "table") and list or {}
     end
+    if NS.FieldTests:IsOn() then    -- field test brief-group-meter: are the other members' rows readable?
+        local others, othersWithRows = 0, 0
+        for _, m in ipairs(MK.Team:Members()) do
+            if m.unit ~= "player" then
+                others = others + 1
+                if #Spells(m.unit, T.DamageTaken) > 0 or #Spells(m.unit, T.Interrupts) > 0 then
+                    othersWithRows = othersWithRows + 1
+                end
+            end
+        end
+        if others > 0 then
+            NS.FieldTests:Saw("brief-group-meter", { others = others, othersWithRows = othersWithRows })
+        end
+    end
     for _, m in ipairs(MK.Team:Members()) do
-        -- Hits: the enemy's name comes with each spell.
+        -- Hits: the enemy's name comes with each spell. A summoned creature's hits are listed under its owner
+        -- (unitName) with the creature in creatureName [docs: Blizzard_DamageMeter formats "spell (creature)" for
+        -- pets]: Renegade Conjurer got its servitors' Fireball/Frostbolt/Arcane Bolt, 2026-11-26. Credit the creature.
         for _, sp in ipairs(Spells(m.unit, T.DamageTaken)) do
             local id = Plain(sp, "table") and sp.spellID
             local det = Plain(sp, "table") and sp.combatSpellDetails
             local mob = Plain(det, "table") and det.unitName
+            local creature = Plain(sp, "table") and sp.creatureName
+            if Plain(creature, "string") and creature ~= "" and not (Plain(mob, "string") and creature == mob) then
+                MK:Debug("briefing: spell %s hit by %s (owner %s)", Plain(id, "number") and id or "?", creature,
+                    Plain(mob, "string") and mob or "?")
+                NS.FieldTests:Saw("bwk-summon-credit", { spell = Plain(id, "number") and id or nil,
+                    creature = creature, owner = Plain(mob, "string") and mob or nil, instanceID = instanceID })
+                mob = creature
+            end
             if Plain(id, "number") and not MELEE[id] and Plain(mob, "string") and mob ~= "" and det.isMob == true
-                and not members[mob] then
+                and not members[mob] and not MK.MobDB.IsUnknownName(mob) then
                 if Briefing.RecordSeen(instanceID, instanceName, mob, id, "hit") then new = new + 1 end
             end
         end

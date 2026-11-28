@@ -475,6 +475,8 @@ end
 function Bar:ResetPosition()
     NS.db.audit.point = NS.CopyTable(NS.DefaultConfig.audit.point)
     NS.db.audit.debuffPoint = nil   -- back above the buff tiles
+    if NS.AuditManaBreak then NS.AuditManaBreak:ResetPosition() end
+    if NS.AuditCarrot then NS.AuditCarrot:ResetPosition() end
     if not built then return end
     if InCombatLockdown() then
         pendingLayout = true

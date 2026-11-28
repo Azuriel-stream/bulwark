@@ -245,11 +245,16 @@ end
 -- =========================================================================
 local INHERIT = { "type", "prio", "icon", "class" }   -- not the note (a label for the body) or the levels
 
+-- The client's placeholder for a name it couldn't resolve (Maraudon had an "Unknown" mob, 2026-11-27): never a mob.
+function MobDB.IsUnknownName(name)
+    return name == "Unknown" or (UNKNOWNOBJECT ~= nil and name == UNKNOWNOBJECT) or (UNKNOWN ~= nil and name == UNKNOWN)
+end
+
 -- name; sigs: the signatures the mob may have, best first (a plate's sig + sigBase; from the data, every body the
 -- name uses: 138 of 976 names have more than one, e.g. male and female models); the first with an entry is copied.
 -- defaultPrio: rules' priority if nothing to copy. Returns the new entry, or nil if nothing was added.
 function MobDB:AdoptName(name, sigs, defaultPrio, level)
-    if type(name) ~= "string" or name == "" or not MK.Plates.inInstance then return nil end
+    if type(name) ~= "string" or name == "" or MobDB.IsUnknownName(name) or not MK.Plates.inInstance then return nil end
     local zone = MK:GetZoneMobs(MK.Plates.zone)
     if zone.names[name] then return nil end
     local bodyKey

@@ -24,11 +24,15 @@ local function InstallEditMode(s)
     f.editModeActive = false
     f.reverts = 0
     function f:IsEditModeActive() return self.editModeActive end
+    -- As Blizzard's: a flag plus the two buttons (EditModeManager.lua SetHasActiveChanges / HasActiveChanges)
     function f:SetHasActiveChanges(v)
+        self.hasActiveChanges = v and true or false
         self.SaveChangesButton:SetEnabled(v)
         self.RevertAllChangesButton:SetEnabled(v)
     end
-    function f:RevertAllChanges() self.reverts = self.reverts + 1 end
+    function f:HasActiveChanges() return self.hasActiveChanges end
+    -- RevertAllChanges -> UpdateLayoutInfo -> ClearActiveChangesFlags, before our post-hook runs
+    function f:RevertAllChanges() self.reverts = self.reverts + 1; self:SetHasActiveChanges(false) end
     function f:ClearSelectedSystem() self.cleared = true end
     -- Blizzard's flows: OnShow -> EnterEditMode; Save button -> SaveLayouts; close -> ExitEditMode
     function f:TestEnter()
@@ -166,6 +170,8 @@ return function(_, t)
     f:TestSave()
     t.eq(AuditPoint(), "CENTER CENTER 100 -50", "Save writes the position")
     t.ok(not EM:HasPending(), "nothing pending after Save")
+    t.ok(not f.SaveChangesButton:IsEnabled() and not f.RevertAllChangesButton:IsEnabled(),
+        "Save + Revert greyed out again after Save (user report 2026-11-28)")
 
     -- Revert All Changes (Edit Mode still open): the HUD goes back to its saved spot (none: the default corner).
     Drag(hudBox, MoveHud(300, 700))
@@ -173,6 +179,15 @@ return function(_, t)
     f:RevertAllChanges()
     t.eq(select(1, hud:GetPoint()), "TOPRIGHT", "Revert puts the HUD back")
     t.eq(env.BulwarkDB.marking.hud.point, nil, "HUD position not saved")
+    t.ok(not f.SaveChangesButton:IsEnabled(), "Save greyed out after Revert All Changes")
+
+    -- Blizzard's own unsaved change keeps the buttons on when ours are saved
+    f:SetHasActiveChanges(true)
+    Drag(hudBox, MoveHud(310, 690))
+    env.EventRegistry:TriggerEvent("EditMode.SavedLayouts")   -- e.g. a save that left Blizzard's flag set
+    t.ok(f.SaveChangesButton:IsEnabled(), "Blizzard still has changes: Save stays enabled")
+    f:RevertAllChanges()
+    t.ok(not f.SaveChangesButton:IsEnabled(), "both sides clean: greyed out")
 
     -- Leaving with unsaved moves: Keep / Discard prompt, boxes and preview gone.
     Drag(hudBox, MoveHud(300, 700))

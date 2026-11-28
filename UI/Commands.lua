@@ -17,6 +17,7 @@ function NS.CommandHelp()
         "|cffffd160/bwk reset|r  " .. L["HELP_RESET"],
         "|cffffd160/bwk debug|r [on||off||cvars on||off]  " .. L["HELP_DEBUG"],
         "|cffffd160/bwk errors|r [clear]  " .. L["HELP_ERRORS"],
+        "|cffffd160/bwk tests|r [on||off||list||ask <id>||reset <id>||all]  " .. L["HELP_TESTS_SHORT"],
     }
     for _, area in ipairs(NS.areas) do
         for _, line in ipairs(area.commandHelp or {}) do table.insert(lines, line) end
@@ -108,6 +109,8 @@ local function Handle(msg)
         Debug(rest)
     elseif cmd == "errors" then
         if rest == "clear" then NS:ClearErrors() else NS:PrintErrors() end
+    elseif cmd == "tests" then
+        NS.FieldTests:Command(rest)
     else
         NS:Print(L["HELP_HEADER"])
         for _, line in ipairs(NS.CommandHelp()) do print("  " .. line) end

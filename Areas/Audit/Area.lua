@@ -33,6 +33,13 @@ NS.DefaultConfig.audit = {
     durabilityWarn = 25,
     gratitude = true,           -- whisper the caster when a requested buff arrives
     raceVoice = true,           -- requests and thank-yous in the player's race voice (Voices.lua); off = Neutral
+    manaBreak = true,           -- mana break prompts, 5-man groups only (ManaBreak.lua)
+    manaSelf = true,            --   your own mana: a clickable tile
+    manaHealer = true,          --   the healer's mana: a prompt that fades in by itself (secret value)
+    manaThreshold = 40,         --   show below this %
+    manaHealerPick = "",        --   first name of the healer when the group has no role and no single healing class
+    carrot = true,              -- Carrot on a Stick tile: put it on when mounted, swap it off on foot (Carrot.lua)
+    carrotSlot = 14,            --   the trinket slot it goes into (13 or 14)
     watchSound = true,          -- in-combat sound when Battle Shout / Righteous Fury is about to fade
     watchWarnSeconds = 15,
     watchDurations = {},        -- [spellID] = real duration learned out of combat
@@ -77,6 +84,8 @@ end
 -- Tiles are previewed (all shown, debuff squares visible) while the window shows this tab.
 NS:On("WINDOW_CHANGED", function(shown, areaKey)
     NS.AuditBar:SetWindowPreview(shown and areaKey == "audit")
+    NS.AuditManaBreak:SetWindowPreview(shown and areaKey == "audit")
+    NS.AuditCarrot:SetWindowPreview(shown and areaKey == "audit")
 end)
 
 ---------------------------------------------------------------------------------------------------------------
@@ -198,10 +207,33 @@ NS:AddPage(area.key, {
             function(v) return string.format("%d%%", v) end,
             function(v) cfg().durabilityWarn = v; Rescan() end)
         page.durability:SetPoint("TOPLEFT", 12, -38 - #GEAR_CHECKS * 50 - 22)
+
+        -- Carrot on a Stick (Carrot.lua)
+        local carrot = Card(parent, L["AUDIT_CARD_CARROT"], y - (40 + #GEAR_CHECKS * 50 + 70) - 10, 112)
+        page.carrot = Kit.Checkbox(carrot, L["AUDIT_OPT_CARROT"], nil, function(checked)
+            cfg().carrot = checked
+            page:refresh()
+            NS.AuditCarrot:Changed()
+        end)
+        page.carrot:SetPoint("TOPLEFT", 12, -38)
+        local slotLabel = Kit.Text(carrot, 12, C.text)
+        slotLabel:SetPoint("TOPLEFT", 400, -44)
+        slotLabel:SetText(L["AUDIT_CARROT_SLOT"])
+        page.carrotSlot = Kit.Dropdown(carrot, 170, function()
+            return { { key = 13, label = L["CARROT_SLOT_13"] }, { key = 14, label = L["CARROT_SLOT_14"] } }
+        end, function() return NS.AuditCarrot.ChosenSlot() end, function(key)
+            cfg().carrotSlot = key
+            NS.AuditCarrot:Changed()
+        end)
+        page.carrotSlot:SetPoint("TOPLEFT", 440, -38)
+        Note(carrot, L["AUDIT_OPT_CARROT_DESC"], 44, -66, 580)
     end,
     refresh = function(page)
         for key, cb in pairs(page.checks) do cb:SetChecked(cfg()[key]) end
         page.durability:SetValue(cfg().durabilityWarn or 25)
+        page.carrot:SetChecked(cfg().carrot)
+        page.carrotSlot:SetActive(cfg().carrot)
+        page.carrotSlot:Refresh()
     end,
 })
 
@@ -253,6 +285,115 @@ NS:AddPage(area.key, {
             row.up:SetActive(i > 1)
             row.down:SetActive(i < #priority)
         end
+    end,
+})
+
+---------------------------------------------------------------------------------------------------------------
+-- Mana break (5-man groups; ManaBreak.lua)
+---------------------------------------------------------------------------------------------------------------
+
+local function ClassColored(name, class)
+    local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    if color and color.colorStr then return "|c" .. color.colorStr .. name .. "|r" end
+    return name
+end
+
+-- Healer list: Automatic, then the party (class coloured); a picked player who left stays listed, grey.
+local function HealerOptions()
+    local opts = { { key = "", label = L["AUDIT_MANA_AUTO"] } }
+    local pick, listed = cfg().manaHealerPick or "", false
+    for i = 1, GetNumSubgroupMembers() do
+        local unit = "party" .. i
+        local name = UnitExists(unit) and NS.AuditVoices.FirstName(unit)
+        if name then
+            local ok, _, class = pcall(UnitClass, unit)
+            opts[#opts + 1] = { key = name, label = ClassColored(name, ok and Utils.SafeString(class, nil) or nil) }
+            if name == pick then listed = true end
+        end
+    end
+    if pick ~= "" and not listed then opts[#opts + 1] = { key = pick, label = "|cff888888" .. pick .. "|r" } end
+    return opts
+end
+
+local function HealerNow()
+    local MB = NS.AuditManaBreak
+    local _, name, how = MB.FindHealer()
+    if not MB.FiveMan() then return L["AUDIT_MANA_NOW_NOGROUP"] end
+    if not name then return L["AUDIT_MANA_NOW_NONE"] end
+    return string.format("%s (%s)", name, L["MANA_HOW_" .. how])
+end
+
+NS:AddPage(area.key, {
+    key = "mana",
+    title = L["PAGE_MANA"],
+    build = function(page, parent)
+        local MB = NS.AuditManaBreak
+        local function Changed() page:refresh(); MB:Changed() end
+        local y = Header(parent, L["PAGE_MANA"], L["AUDIT_MANA_DESC"])
+        local card = Card(parent, L["AUDIT_CARD_MANA"], y, 238)
+        page.on = Kit.Checkbox(card, L["AUDIT_OPT_MANA"], L["AUDIT_OPT_MANA_DESC"], function(checked)
+            cfg().manaBreak = checked
+            Changed()
+        end)
+        page.on:SetPoint("TOPLEFT", 12, -38)
+        page.threshold = Kit.Slider(card, L["AUDIT_OPT_MANA_THRESHOLD"], 10, 80, 5,
+            function(v) return string.format("%d%%", v) end,
+            function(v) cfg().manaThreshold = v; MB:Changed() end)
+        page.threshold:SetPoint("TOPLEFT", 312, -58)
+
+        page.self = Kit.Checkbox(card, L["AUDIT_OPT_MANA_SELF"], nil, function(checked)
+            cfg().manaSelf = checked
+            Changed()
+        end)
+        page.self:SetPoint("TOPLEFT", 12, -84)
+        page.selfNote = Note(card, L["AUDIT_OPT_MANA_SELF_DESC"], 44, -108, 580)
+
+        page.healer = Kit.Checkbox(card, L["AUDIT_OPT_MANA_HEALER"], nil, function(checked)
+            cfg().manaHealer = checked
+            Changed()
+        end)
+        page.healer:SetPoint("TOPLEFT", 12, -138)
+        page.healerNote = Note(card, L["AUDIT_OPT_MANA_HEALER_DESC"], 44, -162, 580)
+
+        page.pickLabel = Kit.Text(card, 12, C.goldText)
+        page.pickLabel:SetPoint("TOPLEFT", 44, -210)
+        page.pickLabel:SetText(L["AUDIT_MANA_HEALER_LABEL"])
+        page.pick = Kit.Dropdown(card, 160, HealerOptions, function() return cfg().manaHealerPick or "" end,
+            function(name)
+                cfg().manaHealerPick = name
+                Changed()
+            end)
+        page.pick:SetPoint("TOPLEFT", 110, -202)
+        Kit.Tooltip(page.pick, L["AUDIT_MANA_HEALER_LABEL"], L["AUDIT_MANA_PICK_DESC"])
+        page.now = Kit.Text(card, 12, C.muted)
+        page.now:SetPoint("LEFT", page.pick, "RIGHT", 12, 0)
+
+        local key = Card(parent, L["AUDIT_CARD_MANA_KEY"], y - 248, 128)
+        page.keyText = Kit.Text(key, 12)
+        page.keyText:SetPoint("TOPLEFT", 16, -44)
+        local previewBtn = Kit.Button(key, L["AUDIT_MANA_PREVIEW_BTN"], 160, function()
+            NS:Print(L["AUDIT_MANA_PREVIEW_HEAD"])
+            print("  - " .. NS.AuditVoices.ManaBreak("self"))
+            print("  - " .. NS.AuditVoices.ManaBreak("healer", MB.healerName or L["MANA_SAMPLE_HEALER"]))
+        end)
+        previewBtn:SetPoint("TOPLEFT", 14, -62)
+        Note(key, L["AUDIT_MANA_KEY_NOTE"], 186, -66, 440)
+        Note(key, L["AUDIT_MANA_NOTE"], 16, -98, 600)
+    end,
+    refresh = function(page)
+        local c, on = cfg(), cfg().manaBreak and true or false
+        page.on:SetChecked(c.manaBreak)
+        page.threshold:SetValue(c.manaThreshold or 40)
+        page.self:SetChecked(c.manaSelf)
+        page.healer:SetChecked(c.manaHealer)
+        page.self:SetActive(on)
+        page.healer:SetActive(on)
+        Kit.SetTextColor(page.selfNote, on and C.muted or C.disabled)
+        Kit.SetTextColor(page.healerNote, on and C.muted or C.disabled)
+        page.pick:Refresh()
+        page.pick:SetActive(on and c.manaHealer and true or false)
+        page.now:SetText(string.format(L["AUDIT_MANA_NOW"], HealerNow()))
+        page.keyText:SetText(NS.AuditManaBreak.KeyHint())
     end,
 })
 
@@ -362,6 +503,8 @@ NS:AddPage(area.key, {
 area.commandHelp = {
     "|cffffd160/bwk audit|r lock||unlock||reset  " .. L["HELP_AUDIT_TILES"],
     "|cffffd160/bwk audit|r scan||dump||status||voice  " .. L["HELP_AUDIT_TOOLS"],
+    "|cffffd160/bwk audit mana|r [self||healer||status]  " .. L["HELP_AUDIT_MANA"],
+    "|cffffd160/bwk audit carrot|r  " .. L["HELP_AUDIT_CARROT"],
 }
 
 -- /bwk audit voice: the voice in use and the message each current request tile would send (printed, not sent).
@@ -387,6 +530,8 @@ local function VoicePreview()
     end
     if shown == 0 then print("  " .. L["AUDIT_VOICE_NONE"]) end
     print("  - " .. Voices.Thanks(Utils.SpellChatName(1243), "Thalindra"))
+    print("  - " .. Voices.ManaBreak("self"))
+    print("  - " .. Voices.ManaBreak("healer", NS.AuditManaBreak.healerName or "Thalindra"))
 end
 
 function area.command(args)
@@ -405,6 +550,17 @@ function area.command(args)
         NS.AuditScanner:Dump()
     elseif cmd == "voice" then
         VoicePreview()
+    elseif cmd == "mana" then
+        local sub = args:lower():match("^%S+%s+(%S+)")
+        if sub == "status" then
+            NS.AuditManaBreak.Status()
+        elseif not NS:IsAreaRunning("audit") then
+            NS:Print(L["AUDIT_NOT_RUNNING"])
+        else
+            NS.AuditManaBreak.Announce((sub == "self" or sub == "healer") and sub or nil)
+        end
+    elseif cmd == "carrot" then
+        NS.AuditCarrot.Status()
     elseif cmd == "status" then
         local tiles, types = PlanSummary()
         NS:Print("%s: %s", L["AREA_AUDIT"], NS:IsAreaRunning("audit") and L["STATUS_ON"] or L["STATUS_OFF"])

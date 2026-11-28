@@ -22,6 +22,7 @@ Core\Init.lua
 Core\Config.lua
 Core\Utils.lua
 Core\Areas.lua
+Core\FieldTests.lua
 
 # Window kit and window
 UI\Kit.lua
@@ -44,6 +45,8 @@ Areas\Audit\Gratitude.lua
 Areas\Audit\Bar.lua
 Areas\Audit\Scanner.lua
 Areas\Audit\SelfAlert.lua
+Areas\Audit\ManaBreak.lua
+Areas\Audit\Carrot.lua
 Areas\Audit\Area.lua
 # Marking: from TankMarkForever (Core.lua = the namespace its modules expect)
 Areas\Marking\Core.lua
@@ -82,3 +85,6 @@ Areas\Utilities\MatsTracker.lua
 UI\Settings.lua
 UI\Minimap.lua
 UI\Commands.lua
+
+# Field tests (off by default; /bwk tests on): the open in-game checks of kb/testing.md
+Core\FieldTestList.lua

@@ -33,10 +33,13 @@ buttons move over by themselves; macros that `/click TMF_...` need `TMF_` change
 | `/bwk debug [on\|off]` | debug trace in chat (kept in the saved variables) |
 | `/bwk debug cvars on\|off` | the game's Lua error popups and taint log |
 | `/bwk errors [clear]` | list or clear errors Bulwark recorded |
+| `/bwk tests [on\|off\|list\|ask <id>\|reset <id>\|all]` | field tests: in-game checks for features in development (off by default) |
 | `/bwk alerts test miss\|cc\|disarm\|whisper [name]` | send a test alert through the real channel |
 | `/bwk alerts status` | show the Alerts settings |
 | `/bwk audit lock\|unlock\|reset` | lock, unlock (drag) or reset the Audit tiles |
 | `/bwk audit scan\|dump\|status\|voice` | scan now, list your auras with spell IDs, show what's checked, preview your chat messages |
+| `/bwk audit mana [self\|healer\|status]` | announce a mana break (the healer if Bulwark knows one, else you), or say why nothing is shown |
+| `/bwk audit carrot` | say why the Carrot on a Stick tile is or isn't shown |
 | `/bwk mark announce\|plan\|status` | post the kill order, print the pack plan, show status |
 | `/bwk mark learn <1-9\|ignore\|cc> [icon\|class]`, `/bwk mark forget` | teach or forget the hovered/targeted mob |
 | `/bwk mark select clear`, `/bwk mark overlay` | clear the Shift-hover selection, toggle planned icons |
@@ -81,9 +84,20 @@ all good. Each tile shows the live buff and timer even in combat.
 - **Gear:** defense skill not maxed (in a group), tanking without a shield, low durability.
 - **Resting:** in a city or an inn, buff and consumable tiles stay hidden; gear warnings and debuffs still show
   (Audit > Tiles > Hide while resting, on by default).
+- **Mana break (5-player groups, between pulls):** when *your* mana drops below the threshold (default 40%), a
+  tile appears; click it to tell the group you need a drink (in your race's voice, like the requests). It stays
+  until you're back to 90% or you pull. Next to it, the **healer's** name and mana appear by themselves when their
+  mana drops below the threshold, and stay while they drink. Forever hides other players' mana from addons, so
+  Bulwark never sees the number: that prompt can't be clicked, and the **Announce mana break** key (Key Bindings >
+  AddOns > Bulwark) or `/bwk audit mana` posts the message. The healer is the group finder's healer role, else the
+  only Priest, Druid, Shaman or Paladin, else the player you pick on Audit > Mana break. Not in raids: the raid
+  leader calls mana breaks there.
+- **Carrot on a Stick:** mounted with the Carrot in your bags, a green tile puts it into the trinket slot you choose
+  (Audit > Gear). A few seconds after you get off with it on, an orange tile lists the trinkets in your bags; the one
+  the Carrot replaced comes first. Not in combat: the game doesn't allow trinket swaps then.
 
-Pages: Checks, Blessings (priority per tank class), Tiles (lock, sizes, positions, hide while resting), Sound, Tools. While the window
-shows the Audit tab, every tile is shown as a preview. Both rows can also be moved in Blizzard's HUD Edit Mode.
+Pages: Checks, Gear (warnings, Carrot on a Stick), Blessings (priority per tank class), Mana break, Tiles (lock, sizes, positions, hide while resting), Sound, Tools. While the window
+shows the Audit tab, every tile is shown as a preview. Both rows, the mana break prompt and the Carrot tile can also be moved in Blizzard's HUD Edit Mode.
 
 ## Marking
 

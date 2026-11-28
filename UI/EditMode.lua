@@ -50,22 +50,33 @@ local function IsFunction(t, key)
     return type(t) == "table" and type(t[key]) == "function"
 end
 
--- Enable Save + Revert All Changes while we have unsaved moves (widget state only, no Lua fields).
-local function ShowUnsaved()
+-- Save + Revert All Changes enabled while Blizzard or we have unsaved changes (widget state only, no Lua fields).
+-- Called again after our Commit / Revert: Blizzard's SaveLayouts and RevertAllChanges clear their own flag
+-- (SetHasActiveChanges(false), whose hook lands here) BEFORE we hear about it, so at that moment our moves still
+-- look pending and the buttons were left enabled after a Save [in-game 2026-11-28].
+local function SyncButtons()
     local f = Blizzard()
-    if not (f and next(pending)) then return end
-    if f.SaveChangesButton then pcall(f.SaveChangesButton.SetEnabled, f.SaveChangesButton, true) end
-    if f.RevertAllChangesButton then pcall(f.RevertAllChangesButton.SetEnabled, f.RevertAllChangesButton, true) end
+    if not f then return end
+    local theirs = false
+    if IsFunction(f, "HasActiveChanges") then
+        local ok, v = pcall(f.HasActiveChanges, f)
+        theirs = ok and v == true
+    end
+    local on = theirs or next(pending) ~= nil
+    if f.SaveChangesButton then pcall(f.SaveChangesButton.SetEnabled, f.SaveChangesButton, on) end
+    if f.RevertAllChangesButton then pcall(f.RevertAllChangesButton.SetEnabled, f.RevertAllChangesButton, on) end
 end
 
 local function Commit()
     for el, pos in pairs(pending) do el.Save(pos) end
     wipe(pending)
+    SyncButtons()
 end
 
 local function Revert()
     for el in pairs(pending) do el.Restore() end
     wipe(pending)
+    SyncButtons()
 end
 
 local function PendingLabels()
@@ -134,7 +145,7 @@ local function CreateOverlay(el, frame)
         Paint(self, KIT_IDLE)
         self.label:Hide()
         pending[el] = el.Read()
-        ShowUnsaved()
+        SyncButtons()
     end)
     o:Hide()
     el.overlay = o
@@ -177,7 +188,7 @@ local function OnEnter()
         if el.OnEnter then el.OnEnter() end
     end
     UpdateOverlays()
-    ShowUnsaved()
+    SyncButtons()
 end
 
 local function OnExit()
@@ -227,7 +238,7 @@ local function Hook()
         end)
     end
     if IsFunction(f, "SetHasActiveChanges") then
-        hooksecurefunc(f, "SetHasActiveChanges", ShowUnsaved)
+        hooksecurefunc(f, "SetHasActiveChanges", SyncButtons)
     end
     -- Edit Mode hides without exiting while some panels are open: hide our boxes with it.
     f:HookScript("OnShow", UpdateOverlays)

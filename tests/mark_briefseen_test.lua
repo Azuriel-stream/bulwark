@@ -107,6 +107,27 @@ return function(_, t)
     local lines = B.BuildLines((B.Plan()))
     t.eq(lines[1], "[Bulwark] Best effort: Shadow Hex", "learned cast briefed")
 
+    -- 3b. A summoned creature's hit is listed under its owner, with the creature in creatureName (Alcaz Prison:
+    --     the Conjurer got its servitors' bolts): credit the creature. "Unknown" (unresolved name) is never a mob.
+    local function petHit(id, owner, creature)
+        local row = hit(id, owner)
+        row.creatureName = creature
+        return row
+    end
+    local PETS = 9998   -- its own dungeon, so the page checks below keep their rows
+    MK.Plates.instanceID = PETS
+    enemies = { { name = "Test Conjurer", classFilename = "MAGE", sourceCreatureID = 3 },
+               { name = "Test Servitor", classFilename = "MAGE", sourceCreatureID = 4 },
+               { name = "Unknown", classFilename = "MAGE", sourceCreatureID = 5 } }
+    spells = { [7] = { [GUID_ME] = { petHit(99002, "Test Conjurer", "Test Servitor"), petHit(99003, "Test Conjurer", ""),
+                                     hit(99001, "Unknown") } } }
+    fight()
+    t.ok(rec(PETS, "Test Servitor", 99002), "pet's spell credited to the creature")
+    t.eq(rec(PETS, "Test Conjurer", 99002), nil, "not to its owner")
+    t.ok(rec(PETS, "Test Conjurer", 99003), "empty creatureName: the owner's own spell")
+    t.eq(B.LearnedMobs(PETS)["Unknown"], nil, "an Unknown mob is not recorded")
+    MK.Plates.instanceID = NODATA
+
     -- 4. Guards: open world, combat.
     MK.Plates.inInstance = false
     t.eq(B.ReadMeter(), 0, "open world: not read")

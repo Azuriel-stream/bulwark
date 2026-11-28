@@ -16,6 +16,8 @@ NS.DefaultConfig = {
     debugCVars = false,     -- scriptErrors/taintLog CVars set by /bwk debug cvars
     debugLog = {},
     errors = {},
+    -- Field tests (Core/FieldTests.lua): off by default; results[id] = { status, note, data, ctx }, progress[id] = {}
+    fieldTests = { on = false, results = {}, progress = {} },
 }
 
 -- Per-character settings (BulwarkCharDB).

@@ -86,6 +86,7 @@ return function(_, t)
     sigs = Learn.FromMeterRow(RFC, "Searing Blade Enforcer", "elite")
     t.eq(table.concat(sigs, ","), "elite|RAGE|917116,elite|RAGE|949470", "data: both bodies the Enforcer uses, stable order")
     zone.sigs["elite|RAGE|949470"] = { type = "TANK", prio = 3 }   -- only the second body has an entry
+    MK.InstanceMobs[RFC][999001] = { "C;R;1;1;;;Cave Rat" }   -- test critter
     meterRows = {
         { name = "Searing Blade Enforcer", classification = "elite", sourceCreatureID = 11323 },
         { name = "Taragaman the Hungerer", classification = "elite", sourceCreatureID = 11520 },
@@ -97,6 +98,8 @@ return function(_, t)
         { name = "Dragon Thunder", classification = "normal", classFilename = "PALADIN" },
         { name = "Guid Player", classification = "normal", sourceCreatureID = 2, sourceGUID = "Player-1-0ABC" },
         { name = "Tankard", classification = "normal", sourceCreatureID = 3 },   -- a group member's name
+        { name = "Unknown", classification = "normal", sourceCreatureID = 5 },   -- an unresolved name
+        { name = "Cave Rat", classification = "normal", sourceCreatureID = 6 },  -- a critter by the data
     }
     sim:EnterCombat()
     sim:LeaveCombat()
@@ -111,6 +114,9 @@ return function(_, t)
     t.eq(zone.names["Dragon Thunder"], nil, "a mind-controlled player (no creature ID) is skipped")
     t.eq(zone.names["Guid Player"], nil, "a Player- GUID is skipped")
     t.eq(zone.names["Tankard"], nil, "a group member's name is skipped")
+    t.eq(zone.names["Unknown"], nil, "an Unknown name is skipped")
+    t.eq(zone.names["Cave Rat"], nil, "a critter is skipped")
+    t.ok(Learn.IsCritter(RFC, "Cave Rat") and not Learn.IsCritter(RFC, "Ragefire Trogg"), "critter by the data only")
     t.eq(#sim.errors, 0, "no Lua errors (secret name skipped)")
 
     -- Option off, or outside instances: the meter isn't read.

@@ -11,7 +11,8 @@ NS.AuditVoices = Voices
 
 -- Fields per voice (a race voice falls back to NEUTRAL for anything it lacks):
 --   request (addressed, any buff), requestByBuff (NEUTRAL: addressed lines per messageKey, DEFAULT for the rest),
---   requestNoWho, thanks, dispelWho, dispelNoWho, healthstone (addressed), healthstoneNoWho.
+--   requestNoWho, thanks, dispelWho, dispelNoWho, healthstone (addressed), healthstoneNoWho,
+--   manaSelf (you need a drink), manaHealer ({name} = the healer's first name; ManaBreak.lua).
 Voices.DATA = {
     NEUTRAL = {
         requestByBuff = {
@@ -90,6 +91,16 @@ Voices.DATA = {
         dispelNoWho = { "I have a {type} effect on me - dispel me please!" },
         healthstone = { "{who}, I need a Healthstone please!" },
         healthstoneNoWho = { "I need a Healthstone please!" },
+        manaSelf = {
+            "Mana break: I need a drink before the next pull.",
+            "Short break, I'm low on mana. Drinking now.",
+            "Out of mana. Give me a moment to drink.",
+        },
+        manaHealer = {
+            "Mana break: {name} needs a drink. We pull when they're ready.",
+            "Waiting for {name} to drink up before the next pull.",
+            "{name}, take your time and drink. We wait for you.",
+        },
     },
 
     HUMAN = {
@@ -114,6 +125,14 @@ Voices.DATA = {
         healthstone = {
             "{who}, a Healthstone for the one taking the blows?",
             "{who}, could you spare a Healthstone? I'd rather not test the Spirit Healer's patience.",
+        },
+        manaSelf = {
+            "By the Light, I need a moment to drink before we press on.",
+            "Shield's ready, mana isn't. A short break to drink.",
+        },
+        manaHealer = {
+            "Hold the line, everyone: {name} needs a drink before the next pull.",
+            "We wait for {name} to drink. The Light rewards patience.",
         },
     },
 
@@ -140,6 +159,14 @@ Voices.DATA = {
             "{who}, a Healthstone for the dwarf up front, if ye please!",
             "{who}, spare a Healthstone? Stone's a dwarf's best friend.",
         },
+        manaSelf = {
+            "Hold yer horses, I need a drink! Water this time, sadly.",
+            "Me mana's drier than a Badlands well. Give me a moment to drink.",
+        },
+        manaHealer = {
+            "Nobody pulls! {name} needs a drink, and I don't blame them.",
+            "Hold up, lads, {name}'s havin' a drink. We wait.",
+        },
     },
 
     NIGHTELF = {
@@ -164,6 +191,14 @@ Voices.DATA = {
         healthstone = {
             "{who}, might I trouble you for a Healthstone?",
             "{who}, a Healthstone, please. The night is long.",
+        },
+        manaSelf = {
+            "Elune grant me patience. I must drink before the next pull.",
+            "My mana runs low. A moment of rest, please.",
+        },
+        manaHealer = {
+            "We rest while {name} drinks. The forest is patient, and so are we.",
+            "{name} needs to drink. We wait under Elune's light.",
         },
     },
 
@@ -190,6 +225,14 @@ Voices.DATA = {
             "{who}, could I get a Healthstone? Emergency repair kit!",
             "{who}, a Healthstone for my emergency kit, please!",
         },
+        manaSelf = {
+            "Mana reserves critical! Initiating drink protocol.",
+            "Recharging! Back in a moment.",
+        },
+        manaHealer = {
+            "Pause the pulls: {name} is refueling!",
+            "Waiting for {name} to recharge. Efficiency demands it!",
+        },
     },
 
     ORC = {
@@ -214,6 +257,14 @@ Voices.DATA = {
         healthstone = {
             "{who}, a Healthstone for the one up front!",
             "{who}, give me a Healthstone. I don't plan to die today.",
+        },
+        manaSelf = {
+            "Even an orc must drink. Wait.",
+            "No mana, no fight. I drink, then we crush them.",
+        },
+        manaHealer = {
+            "Nobody pulls! {name} drinks first.",
+            "We wait for {name}. A healer with no mana means a dead tank.",
         },
     },
 
@@ -240,6 +291,14 @@ Voices.DATA = {
             "{who}, a Healthstone? My bones are wearing thin.",
             "{who}, I'll take a Healthstone. Dying twice is tiresome.",
         },
+        manaSelf = {
+            "I need a drink. Water, sadly. Nothing stronger works anymore.",
+            "My mana's gone. Give me a moment. I'm not going anywhere.",
+        },
+        manaHealer = {
+            "We wait for {name} to drink. I'd rather not die twice.",
+            "{name} needs a drink. The dead can be patient.",
+        },
     },
 
     TAUREN = {
@@ -265,6 +324,14 @@ Voices.DATA = {
             "{who}, a Healthstone for the one who stands in front?",
             "{who}, may I have a Healthstone? The ancestors aren't ready for me yet.",
         },
+        manaSelf = {
+            "I must drink before the next hunt. Patience, friends.",
+            "The Earth Mother asks for rest. I drink, then we go.",
+        },
+        manaHealer = {
+            "We rest while {name} drinks. The herd waits for its healer.",
+            "{name} needs a drink. Patience, as the plains teach us.",
+        },
     },
 
     TROLL = {
@@ -289,6 +356,14 @@ Voices.DATA = {
         healthstone = {
             "{who}, gimme one of dem Healthstones, mon!",
             "{who}, a Healthstone for de one takin' de hits?",
+        },
+        manaSelf = {
+            "Hold up, mon, I be needin' a drink!",
+            "Me mana be gone. Gimme a moment, mon.",
+        },
+        manaHealer = {
+            "Nobody pull! {name} be drinkin', mon.",
+            "We wait for {name}, mon. De loa like a patient tank.",
         },
     },
 
@@ -316,6 +391,14 @@ Voices.DATA = {
             "{who}, a Healthstone would be a prudent precaution.",
             "{who}, might I have a Healthstone? Even scholars bleed.",
         },
+        manaSelf = {
+            "A brief pause: my mana needs replenishing. Prudence over haste.",
+            "The scholars of Eldre'Thalas never fought on empty reserves. I'll drink first.",
+        },
+        manaHealer = {
+            "We pause while {name} drinks. Preparation over haste.",
+            "{name} needs to drink. A sensible pause before the next pull.",
+        },
     },
 
     -- Shen'dorei, Horde: wind spirits, Skywall, skysight
@@ -341,6 +424,14 @@ Voices.DATA = {
         healthstone = {
             "{who}, a Healthstone, before the winds carry me off?",
             "{who}, might I have a Healthstone? I'd like to see Skywall again.",
+        },
+        manaSelf = {
+            "The winds are still, and so is my mana. A moment to drink.",
+            "Let me drink before the next gust.",
+        },
+        manaHealer = {
+            "We wait for {name} to drink. The winds will keep.",
+            "Calm the winds, everyone: {name} is drinking.",
         },
     },
 }
@@ -397,6 +488,7 @@ local function FirstName(unit)
     name = ok and Utils.SafeString(name, nil)
     if name and name ~= "" then return name end
 end
+Voices.FirstName = FirstName
 
 -- How to address these group members: one -> first name; several of one class -> plural class; else nil.
 function Voices.Address(members)
@@ -447,4 +539,10 @@ end
 -- The thank-you whisper.
 function Voices.Thanks(spellText, name)
     return Voices.Fill(Pick(Field(Voices.Current(), "thanks")), { spell = spellText, name = name })
+end
+
+-- Mana break to the party: "self" (you need a drink) or "healer" (healerName needs one).
+function Voices.ManaBreak(kind, healerName)
+    local field = (kind == "healer" and healerName) and "manaHealer" or "manaSelf"
+    return Voices.Fill(Pick(Field(Voices.Current(), field)), { name = healerName })
 end

@@ -170,7 +170,7 @@ end
 local POWER_TOKENS = { R = "RAGE", M = "MANA" }
 
 -- The offline data rows for a name in an instance, one per body (model) it uses, by model ID (a stable order):
--- { { model, power token, boss, minimum level }, ... }. Empty if unknown.
+-- { { model, power token, boss, minimum level, critter }, ... }. Empty if unknown.
 function Learn.DataByName(instanceID, name)
     local mobs = instanceID and MK.InstanceMobs and MK.InstanceMobs[instanceID]
     local found = {}
@@ -179,7 +179,8 @@ function Learn.DataByName(instanceID, name)
         for _, v in ipairs(variants) do
             local row = MK.Rules.ParseVariant(v)
             if row and row.name == name then
-                table.insert(found, { model = model, power = POWER_TOKENS[row.p], boss = row.boss, level = row.lo })
+                table.insert(found, { model = model, power = POWER_TOKENS[row.p], boss = row.boss, level = row.lo,
+                    critter = row.t == "C" })
                 break
             end
         end
@@ -204,17 +205,34 @@ end
 -- hits on them put them in the enemy list (Krol'dok Stronghold, "Dragon Thunder" recorded as a mob, 2026-11-22).
 -- Mobs carry a creature ID [in-game: every probed row had one]; players never do (Blizzard_DamageMeter's
 -- DamageMeterEntry: isCreature = sourceCreatureID ~= nil). Also: a readable Player- GUID, or a group member's name.
+local function Skipped(src, why)
+    NS.FieldTests:Saw("mark-charmed-row", { why = why, name = src.name, guid = src.sourceGUID,
+        creatureID = src.sourceCreatureID, class = src.classFilename })
+    return true
+end
+
 function Learn.IsPlayerRow(src)
     if src.isLocalPlayer == true then return true end
     local id = src.sourceCreatureID
-    if Utils.IsSecret(id) or id == nil then return true end
+    if Utils.IsSecret(id) or id == nil then return Skipped(src, "no creature ID") end
     local guid = src.sourceGUID
-    if type(guid) == "string" and not Utils.IsSecret(guid) and guid:find("^Player%-") then return true end
+    if type(guid) == "string" and not Utils.IsSecret(guid) and guid:find("^Player%-") then
+        return Skipped(src, "player GUID")
+    end
     local name = src.name
     for _, m in ipairs(MK.Team:Members()) do
-        if name == m.short or name == m.name then return true end
+        if name == m.short or name == m.name then return Skipped(src, "group member name") end
     end
     return false
+end
+
+-- A critter by the offline data (every body the name uses has creature type C). Area damage puts critters in the
+-- enemy list too (Maraudon "Snake", level 1, 2026-11-27); they aren't worth an entry.
+function Learn.IsCritter(instanceID, name)
+    local rows = Learn.DataByName(instanceID, name)
+    if #rows == 0 then return false end
+    for _, d in ipairs(rows) do if not d.critter then return false end end
+    return true
 end
 
 function Learn:ReadMeter()
@@ -229,7 +247,8 @@ function Learn:ReadMeter()
     local added = 0
     for _, src in ipairs(sources) do
         local name = type(src) == "table" and not Utils.IsSecret(src) and src.name
-        if type(name) == "string" and not Utils.IsSecret(name) and name ~= "" and not Learn.IsPlayerRow(src) then
+        if type(name) == "string" and not Utils.IsSecret(name) and name ~= "" and not Learn.IsPlayerRow(src)
+            and not Learn.IsCritter(MK.Plates.instanceID, name) then
             local class = src.classification
             if Utils.IsSecret(class) or type(class) ~= "string" then class = nil end
             local sigs, prio, level = Learn.FromMeterRow(MK.Plates.instanceID, name, class)
